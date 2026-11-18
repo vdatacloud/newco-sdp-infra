@@ -1,0 +1,39 @@
+# Checks that docs/REPOSITORIES.md matches the source copy in newco-sdp-core.
+# Core is private, so the check reads it with CORE_READ_TOKEN: a fine-grained token with
+# Contents: read on vdatacloud/newco-sdp-core only. Without the secret the check warns and passes.
+name: repository-map
+
+on:
+  pull_request:
+    paths: ["docs/REPOSITORIES.md", ".github/workflows/repository-map.yml"]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compare with newco-sdp-core main
+        env:
+          CORE_READ_TOKEN: ${{ secrets.CORE_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CORE_READ_TOKEN}" ]; then
+            echo "::warning::CORE_READ_TOKEN is not set; skipping the repository map drift check."
+            exit 0
+          fi
+          curl -fsSL \
+            -H "Authorization: Bearer ${CORE_READ_TOKEN}" \
+            -H "Accept: application/vnd.github.raw" \
+            "https://api.github.com/repos/vdatacloud/newco-sdp-core/contents/docs/REPOSITORIES.md?ref=main" \
+            -o /tmp/core-REPOSITORIES.md
+          if ! diff -u /tmp/core-REPOSITORIES.md docs/REPOSITORIES.md; then
+            echo "::error file=docs/REPOSITORIES.md::Out of date with newco-sdp-core. Copy core's docs/REPOSITORIES.md over this file unchanged."
+            exit 1
+          fi
+          echo "docs/REPOSITORIES.md matches newco-sdp-core main."
