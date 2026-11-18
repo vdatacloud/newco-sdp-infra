@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "ask": [
+      "Edit(.github/workflows/**)",
+      "Write(.github/workflows/**)",
+      "Edit(.git/hooks/**)",
+      "Write(.git/hooks/**)"
+    ]
+  }
+}
