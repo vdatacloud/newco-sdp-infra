@@ -42,20 +42,7 @@ The jobs a repo runs are the files in its `.github/workflows/`; read them rather
 
 ## Branch protection
 
-`vdatacloud` is on GitHub Free: protection and rulesets work on public repos only (`403: Upgrade to GitHub Pro`
-on private ones). Until then the `repo-policy` check, the pre-push hook and review enforce the rules. When a repo
-can take it (`contexts` must match job names in that repo's workflows):
-
-```bash
-gh api repos/vdatacloud/<repo>/branches/main/protection -X PUT --input - <<'EOF'
-{
-  "required_status_checks": { "strict": true, "contexts": ["Signed commits", "<other job names>"] },
-  "enforce_admins": true,
-  "required_pull_request_reviews": { "required_approving_review_count": 1, "dismiss_stale_reviews": true },
-  "required_signatures": true,
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false
-}
-EOF
-```
+The `vdatacloud` org is on a paid plan, so every repo can protect `main`. The settings live in GitHub, not here;
+check them with `gh api repos/vdatacloud/<repo>/branches/main/protection`. Required checks are the stable job
+names (`Signed commits` everywhere, `Shared files` outside core); matrix job names change with the modules and are
+not required. Changing protection is a user decision: propose it, don't apply it unasked.
