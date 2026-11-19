@@ -12,7 +12,8 @@ L2a"). Infra depends on nothing in the app repos except their published images a
 |---|---|---|---|---|---|
 | I0 | Environment definitions in YAML | — | M1 | Done (#9) | `config/environments/<env>.yaml` is the only place an environment's non-secret values live; `make ENV=<env> <target>` reads it for compose, Terraform and Helm; a schema check fails CI on an unknown or missing key |
 | I1 | Dev dependencies in compose (R1) | L0a, L1 | M1 | Planned | `make deps-up` brings up Postgres, Azurite and otel-lgtm healthy; a test span, metric and log sent over OTLP show in Grafana; `make deps-down -v` leaves nothing behind |
-| I2 | Compose app profile (R2) | L0b, L3, L4, SL2 | M1 | Planned | Locker and seal worker images run beside Keycloak (two realms), Lowkey Vault and ClamAV, exporting to I1's otel-lgtm |
+| I2a | Compose app profile and OTLP collector (R2) | L0b | M1 | Done (I2a PR) | Core's images run after one-shot migrate bootstrap and up, each with its own env file from core's `make app-env`; `otelcol-<env>` fronts otel-lgtm and owns the OTLP ports; logs, metrics and traces arrive |
+| I2b | Keycloak, Lowkey Vault, ClamAV (R2) | I2a | M1 | Planned | Keycloak (two realms via `terraform/modules/keycloak`), Lowkey Vault and ClamAV join the app profile; core L3's smoke gets a token from each realm |
 | I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | Planned | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
 | I3c | Private network: VNet, private endpoints, private DNS, Tailscale subnet router | I3a | M2 | Planned | From the Mac and `192.168.1.7`, the account and vault names resolve to private IPs and work; from outside the tailnet they don't resolve to a reachable endpoint |
 | I3b | Apply dev storage behind the private network (R3) | I3c, core L4a | M2 | Planned | Core's contract suite passes against the accounts; a plan from a clean checkout shows no drift |
@@ -52,10 +53,9 @@ never shares or collides with other projects on the same host and an environment
   `local/.env.<env>` (gitignored) by `scripts/dev-env.sh`; core refuses shared-key access outside the `dev` profile.
 - `Makefile`: `deps-up`, `deps-down`, `deps-logs`.
 
-## I2: compose app profile (R2)
+## I2b: identity, keys and scanning in the app profile (R2)
 
-- Profile `app` adds the locker and seal worker by image tag (`LOCKER_IMAGE`, `SEAL_WORKER_IMAGE`, default the local
-  `make images` tags from core), so infra holds no app code.
+I2a (done) added the `app` profile (core images by tag, migrate one-shots, per-service env files) and the collector.
 - Keycloak in dev mode with the `lab` and `client` realms, applied by `terraform/modules/keycloak` pointed at
   `localhost`: the same module I5 uses later. Seeded clients for the locker, the seal worker, `locker-upload`
   (device flow) and a test service outside the locker's capability map.

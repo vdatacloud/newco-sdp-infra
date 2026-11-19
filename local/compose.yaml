@@ -54,10 +54,9 @@ services:
     # grafana/otel-lgtm 0.11.10, pinned by digest: OTel collector, Prometheus, Loki, Tempo, Grafana.
     image: grafana/otel-lgtm:0.11.10@sha256:09d8c3ce4f3a5f2f5b1ef7a3cc526a7e03b608aeef3ea1c67c912df43b2690c9
     profiles: [deps]
+    # OTLP is reached only through otelcol (ADR 0009); only Grafana is published.
     ports:
       - "127.0.0.1:${SDP_GRAFANA_PORT:-13000}:3000"
-      - "127.0.0.1:${SDP_OTLP_GRPC_PORT:-14317}:4317"
-      - "127.0.0.1:${SDP_OTLP_HTTP_PORT:-14318}:4318"
     volumes:
       - lgtm:/data
     networks: [net]
@@ -66,6 +65,77 @@ services:
       interval: 5s
       timeout: 3s
       retries: 60
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  otelcol:
+    container_name: otelcol-${SDP_ENV}
+    # OpenTelemetry Collector contrib 0.165.0, pinned by digest. Config shared with I3d and I4.
+    image: otel/opentelemetry-collector-contrib:0.165.0@sha256:e40d61f10c9a617cca1ffd1be4d7e2b3a4b0f0001798ff07e58cabe82e618cea
+    profiles: [deps]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    environment:
+      LGTM_OTLP_ENDPOINT: lgtm-${SDP_ENV}:4317
+    ports:
+      - "127.0.0.1:${SDP_OTLP_GRPC_PORT:-14317}:4317"
+      - "127.0.0.1:${SDP_OTLP_HTTP_PORT:-14318}:4318"
+    volumes:
+      - ./otelcol/config.yaml:/etc/otelcol/config.yaml:ro
+    networks: [net]
+    depends_on:
+      lgtm: { condition: service_healthy }
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  # ---- app profile (I2, core rung R2): core's images; env files from core's make app-env.
+  migrate-bootstrap:
+    container_name: migrate-bootstrap-${SDP_ENV}
+    image: ${LOCKER_IMAGE:-sdp-dev/locker:local}
+    profiles: [app]
+    entrypoint: ["/usr/local/bin/migrate", "bootstrap"]
+    env_file: ${SDP_APP_ENV_DIR:-../../newco-sdp-core}/.env.app.${SDP_ENV}.migrate
+    networks: [net]
+    restart: "no"
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  migrate:
+    container_name: migrate-${SDP_ENV}
+    image: ${LOCKER_IMAGE:-sdp-dev/locker:local}
+    profiles: [app]
+    entrypoint: ["/usr/local/bin/migrate", "up"]
+    env_file: ${SDP_APP_ENV_DIR:-../../newco-sdp-core}/.env.app.${SDP_ENV}.migrate
+    networks: [net]
+    restart: "no"
+    depends_on:
+      migrate-bootstrap: { condition: service_completed_successfully }
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  locker:
+    container_name: locker-${SDP_ENV}
+    image: ${LOCKER_IMAGE:-sdp-dev/locker:local}
+    profiles: [app]
+    env_file: ${SDP_APP_ENV_DIR:-../../newco-sdp-core}/.env.app.${SDP_ENV}.locker
+    ports:
+      - "127.0.0.1:${SDP_LOCKER_GRPC_PORT:-18080}:18080"
+      - "127.0.0.1:${SDP_LOCKER_HTTP_PORT:-18081}:18081"
+    networks: [net]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  seal-worker:
+    container_name: seal-worker-${SDP_ENV}
+    image: ${SEAL_WORKER_IMAGE:-sdp-dev/seal-worker:local}
+    profiles: [app]
+    env_file: ${SDP_APP_ENV_DIR:-../../newco-sdp-core}/.env.app.${SDP_ENV}.seal-worker
+    ports:
+      - "127.0.0.1:${SDP_SEAL_WORKER_PORT:-18091}:18091"
+    networks: [net]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
     labels:
       sdp.env: ${SDP_ENV}
 

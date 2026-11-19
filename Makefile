@@ -8,6 +8,25 @@ ENV_FILE := local/.env.$(ENV)
 COMPOSE := docker compose -f local/compose.yaml --env-file $(ENV_FILE) --env-file $(CONFIG_FILE) --profile deps
 CHECK_JSONSCHEMA := check-jsonschema
 
+CORE_DIR ?= $(abspath ../newco-sdp-core)
+APP_COMPOSE := SDP_APP_ENV_DIR=$(CORE_DIR) docker compose -f local/compose.yaml --env-file $(ENV_FILE) --env-file $(CONFIG_FILE) --profile deps --profile app
+APP_SERVICES := migrate-bootstrap migrate locker seal-worker
+
+.PHONY: app-up app-down app-logs
+app-up: deps-up ## Start the app profile (in core first: make images app-env) and wait for /readyz
+	@for f in migrate locker seal-worker; do test -f $(CORE_DIR)/.env.app.$(ENV).$$f || \
+	  { echo "missing $(CORE_DIR)/.env.app.$(ENV).$$f: run make app-env in core"; exit 1; }; done
+	@$(APP_COMPOSE) up -d
+	@for u in 18081/readyz 18091/readyz; do for i in $$(seq 60); do \
+	  curl -fsS -o /dev/null http://127.0.0.1:$$u && echo "ready: $$u" && break; \
+	  [ $$i = 60 ] && { echo "not ready: $$u"; exit 1; }; sleep 1; done; done
+
+app-down: env-render ## Stop and remove the app profile containers; deps keep running
+	@$(APP_COMPOSE) rm --stop --force $(APP_SERVICES)
+
+app-logs: env-render ## Follow the app profile logs
+	@$(APP_COMPOSE) logs -f $(APP_SERVICES)
+
 .PHONY: help env-check env-diff env-render deps-env deps-up deps-down deps-reset deps-ps deps-logs deps-info
 
 help: ## List targets
