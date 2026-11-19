@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=schema.json
+# R4: the k3s lab cluster. Non-secret only.
+env: lab
+target: k3s
+region: local
+k3s: { host: 192.168.1.7, kube_context: sdp-lab, namespace: sdp-lab, platform_namespace: sdp-lab-platform }
+storage:
+  # Roles from architecture section 02. Account name = prefix + env (stlnddev). Shared by Azurite and Terraform.
+  accounts:
+    landing:  { prefix: stlnd,  holds: "uploads in flight and quarantine" }
+    clientip: { prefix: stcip,  holds: "client IP: source snapshots, PAR sheets, builds" }
+    records:  { prefix: strec,  holds: "lab records: execution evidence, reports, attestations" }
+    platform: { prefix: stplat, holds: "harness and agent bundles, runner image manifests, test plan versions" }
+telemetry: { otlp_endpoint: "http://otel-collector.sdp-lab-platform.svc:4318", operational_log_days: 14 }
