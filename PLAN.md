@@ -10,6 +10,7 @@ L2a"). Infra depends on nothing in the app repos except their published images a
 
 | ID | Phase | Serves | Milestone | Status | Exit |
 |---|---|---|---|---|---|
+| I0 | Environment definitions in YAML | — | M1 | Planned | `config/environments/<env>.yaml` is the only place an environment's non-secret values live; `make ENV=<env> <target>` reads it for compose, Terraform and Helm; a schema check fails CI on an unknown or missing key |
 | I1 | Dev dependencies in compose (R1) | L0a, L1 | M1 | Planned | `make deps-up` brings up Postgres, Azurite and otel-lgtm healthy; a test span, metric and log sent over OTLP show in Grafana; `make deps-down -v` leaves nothing behind |
 | I2 | Compose app profile (R2) | L0b, L3, L4, SL2 | M1 | Planned | Locker and seal worker images run beside Keycloak (two realms), Lowkey Vault and ClamAV, exporting to I1's otel-lgtm |
 | I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | Planned | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
@@ -31,6 +32,16 @@ never shares or collides with other projects on the same host and an environment
 - k3s: namespaces `sdp-dev` (services) and `sdp-dev-platform` (stack charts); nothing in `default`. The kube
   context is `sdp-lab`.
 - `make deps-down` / `dev-down` remove only resources with the stack's project label or namespace.
+
+## I0: environment definitions
+
+- One YAML file per environment (`dev`, `lab`, later `azdev`, then per region): suffix, region, ports, image digests,
+  storage account roles (absorbs `config/storage-accounts.json`), network ranges, telemetry endpoints, retention days.
+  No secrets: credentials still come from `local/.env.<env>` (generated) or Key Vault.
+- A JSON Schema beside them; `make env-check` validates every file (`yq` plus `check-jsonschema`, pinned).
+- Consumers read the same file: `scripts/dev-env.sh` renders the compose env, Terraform uses `yamldecode()`, Helm
+  takes it as a values file. The Makefile resolves `ENV` once and passes values down, so targets never hardcode them.
+- `make env-diff A=dev B=lab` shows what differs between two environments.
 
 ## I1: dev dependencies (R1)
 
