@@ -16,6 +16,19 @@ L2a"). Infra depends on nothing in the app repos except their published images a
 | I4 | k3s lab cluster on `192.168.1.7` (R4) | L0c, E3a | M2 | Planned | `make dev-up` from a clean host gives a cluster the core e2e suite passes on |
 | I5 | Regional stamp, identities, GitHub OIDC (core L2) | L2, E6 | M3 | Planned | Stamp compliant under Azure Policy; a non-main branch can't get an apply token |
 
+## Naming and isolation (all phases)
+
+Every Docker and Kubernetes resource lives in its own namespace and carries the environment as a suffix, so SDP
+never shares or collides with other projects on the same host and an environment tears down cleanly:
+
+- Compose: project `sdp-dev` (`name:` in the file), containers `<service>-dev` (`postgres-dev`, `azurite-dev`,
+  `locker-dev`), network `sdp-dev-net`, volumes `sdp-dev-<service>`. A second stack uses another suffix
+  (`sdp-test`, `-test`).
+- Images built locally: `sdp/<service>:dev` (or `:dev-<git sha>`), never `latest`.
+- k3s: namespaces `sdp-dev` (services) and `sdp-dev-platform` (stack charts); nothing in `default`. The kube
+  context is `sdp-lab`.
+- `make deps-down` / `dev-down` remove only resources with the stack's project label or namespace.
+
 ## I1: dev dependencies (R1)
 
 - `local/compose.yaml`, profile `deps`: `pgvector/pgvector` with a fixed major version, Azurite with three named
