@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SDP environment definition",
+  "description": "Non-secret values for one environment. Secrets never appear here: local ones are generated into local/.env.<env>, Azure ones come from Key Vault.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["env", "target", "region", "storage", "telemetry"],
+  "properties": {
+    "env": { "type": "string", "pattern": "^[a-z][a-z0-9]{1,7}$", "description": "Suffix for every resource name: sdp-<env>, <svc>-<env>, st<role><env>" },
+    "target": { "enum": ["compose", "k3s", "azure"] },
+    "region": { "type": "string", "pattern": "^[a-z0-9]+$", "description": "Azure region name, or 'local'" },
+    "ports": {
+      "type": "object", "additionalProperties": false,
+      "required": ["postgres", "blob", "grafana", "otlp_grpc", "otlp_http"],
+      "properties": {
+        "postgres": { "$ref": "#/$defs/port" }, "blob": { "$ref": "#/$defs/port" },
+        "grafana": { "$ref": "#/$defs/port" }, "otlp_grpc": { "$ref": "#/$defs/port" },
+        "otlp_http": { "$ref": "#/$defs/port" }
+      }
+    },
+    "k3s": {
+      "type": "object", "additionalProperties": false,
+      "required": ["host", "kube_context", "namespace", "platform_namespace"],
+      "properties": {
+        "host": { "type": "string", "format": "ipv4" },
+        "kube_context": { "type": "string" },
+        "namespace": { "type": "string" },
+        "platform_namespace": { "type": "string" }
+      }
+    },
+    "postgres": {
+      "type": "object", "additionalProperties": false, "required": ["db", "admin_user"],
+      "properties": { "db": { "type": "string", "pattern": "^[a-z_][a-z0-9_]*$" }, "admin_user": { "type": "string", "pattern": "^[a-z_][a-z0-9_]*$" } }
+    },
+    "storage": {
+      "type": "object", "additionalProperties": false, "required": ["accounts"],
+      "properties": {
+        "accounts": {
+          "type": "object", "additionalProperties": false,
+          "required": ["landing", "clientip", "records", "platform"],
+          "patternProperties": { "": { "$ref": "#/$defs/account" } },
+          "properties": { "landing": {}, "clientip": {}, "records": {}, "platform": {} }
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object", "additionalProperties": false, "required": ["otlp_endpoint", "operational_log_days"],
+      "properties": {
+        "otlp_endpoint": { "type": "string", "format": "uri" },
+        "operational_log_days": { "type": "integer", "minimum": 1, "maximum": 730 }
+      }
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "target": { "const": "compose" } } }, "then": { "required": ["ports", "postgres"] } },
+    { "if": { "properties": { "target": { "const": "k3s" } } }, "then": { "required": ["k3s"] } }
+  ],
+  "$defs": {
+    "port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+    "account": {
+      "type": "object", "additionalProperties": false, "required": ["prefix", "holds"],
+      "properties": { "prefix": { "type": "string", "pattern": "^st[a-z]{2,6}$" }, "holds": { "type": "string" } }
+    }
+  }
+}

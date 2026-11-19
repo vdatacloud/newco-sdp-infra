@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=schema.json
+# R1/R2: compose on this machine. Non-secret only; secrets are generated into local/.env.dev.
+env: dev
+target: compose
+region: local
+ports: { postgres: 55432, blob: 10100, grafana: 13000, otlp_grpc: 14317, otlp_http: 14318 }
+postgres: { db: sdp_dev, admin_user: sdp_admin }
+storage:
+  # Roles from architecture section 02. Account name = prefix + env (stlnddev). Shared by Azurite and Terraform.
+  accounts:
+    landing:  { prefix: stlnd,  holds: "uploads in flight and quarantine" }
+    clientip: { prefix: stcip,  holds: "client IP: source snapshots, PAR sheets, builds" }
+    records:  { prefix: strec,  holds: "lab records: execution evidence, reports, attestations" }
+    platform: { prefix: stplat, holds: "harness and agent bundles, runner image manifests, test plan versions" }
+telemetry: { otlp_endpoint: "http://127.0.0.1:14318", operational_log_days: 7 }
