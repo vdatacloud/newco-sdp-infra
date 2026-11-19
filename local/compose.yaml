@@ -49,6 +49,26 @@ services:
     labels:
       sdp.env: ${SDP_ENV}
 
+  lgtm:
+    container_name: lgtm-${SDP_ENV}
+    # grafana/otel-lgtm 0.11.10, pinned by digest: OTel collector, Prometheus, Loki, Tempo, Grafana.
+    image: grafana/otel-lgtm:0.11.10@sha256:09d8c3ce4f3a5f2f5b1ef7a3cc526a7e03b608aeef3ea1c67c912df43b2690c9
+    profiles: [deps]
+    ports:
+      - "127.0.0.1:${SDP_GRAFANA_PORT:-13000}:3000"
+      - "127.0.0.1:${SDP_OTLP_GRPC_PORT:-14317}:4317"
+      - "127.0.0.1:${SDP_OTLP_HTTP_PORT:-14318}:4318"
+    volumes:
+      - lgtm:/data
+    networks: [net]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+    labels:
+      sdp.env: ${SDP_ENV}
+
 networks:
   net:
     name: sdp-${SDP_ENV}-net
@@ -58,3 +78,5 @@ volumes:
     name: sdp-${SDP_ENV}-postgres
   azurite:
     name: sdp-${SDP_ENV}-azurite
+  lgtm:
+    name: sdp-${SDP_ENV}-lgtm

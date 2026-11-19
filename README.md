@@ -5,7 +5,7 @@ How the SDP repos fit together: [`docs/REPOSITORIES.md`](docs/REPOSITORIES.md), 
 
 ## Local stack
 
-Postgres 17 with pgvector and Azurite with the four storage accounts (landing, client IP, records, platform) from
+Postgres 17 with pgvector, otel-lgtm (Grafana on 13000, OTLP on 14317/14318) and Azurite with the four storage accounts (landing, client IP, records, platform) from
 `config/storage-accounts.json`, namespaced by environment (`ENV`, default `dev`):
 
 ```sh

@@ -11,7 +11,7 @@ help: ## List targets
 deps-env: ## Generate local/.env.$(ENV) once (dev-only credentials, gitignored)
 	@scripts/dev-env.sh $(ENV)
 
-deps-up: deps-env ## Start Postgres (pgvector) and Azurite for sdp-$(ENV) and wait until healthy
+deps-up: deps-env ## Start Postgres (pgvector), Azurite and otel-lgtm for sdp-$(ENV) and wait until healthy
 	@$(COMPOSE) up -d --wait
 
 deps-down: ## Stop sdp-$(ENV), keeping its volumes
@@ -29,4 +29,6 @@ deps-logs: ## Follow sdp-$(ENV) logs
 deps-info: ## Print endpoints and account names for sdp-$(ENV) (never prints passwords or keys)
 	@get() { sed -n "s/^$$1=//p" $(ENV_FILE) | tr -d "'"; }; \
 	echo "postgres  127.0.0.1:$${SDP_PG_PORT:-55432} db=$$(get POSTGRES_DB) user=$$(get POSTGRES_USER) (password in $(ENV_FILE))"; \
-	for a in $$(get AZURITE_ACCOUNTS | tr ';' '\n' | cut -d: -f1); do echo "blob      http://127.0.0.1:$${SDP_BLOB_PORT:-10100}/$$a"; done
+	for a in $$(get AZURITE_ACCOUNTS | tr ';' '\n' | cut -d: -f1); do echo "blob      http://127.0.0.1:$${SDP_BLOB_PORT:-10100}/$$a"; done; \
+	echo "grafana   http://127.0.0.1:$${SDP_GRAFANA_PORT:-13000} (local only, default login)"; \
+	echo "otlp      grpc 127.0.0.1:$${SDP_OTLP_GRPC_PORT:-14317}  http http://127.0.0.1:$${SDP_OTLP_HTTP_PORT:-14318}"

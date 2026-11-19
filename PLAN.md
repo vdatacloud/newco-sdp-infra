@@ -10,11 +10,12 @@ L2a"). Infra depends on nothing in the app repos except their published images a
 
 | ID | Phase | Serves | Milestone | Status | Exit |
 |---|---|---|---|---|---|
-| I1 | Dev dependencies in compose (R1) | L0a, L1 | M1 | Planned | `make deps-up` brings up Postgres and Azurite healthy; `make deps-down -v` leaves nothing behind |
-| I2 | Compose app profile (R2) | L0b, L3, L4, SL2 | M1 | Planned | Locker and seal worker images run beside Keycloak (two realms), Lowkey Vault, ClamAV and otel-lgtm |
+| I1 | Dev dependencies in compose (R1) | L0a, L1 | M1 | Planned | `make deps-up` brings up Postgres, Azurite and otel-lgtm healthy; a test span, metric and log sent over OTLP show in Grafana; `make deps-down -v` leaves nothing behind |
+| I2 | Compose app profile (R2) | L0b, L3, L4, SL2 | M1 | Planned | Locker and seal worker images run beside Keycloak (two realms), Lowkey Vault and ClamAV, exporting to I1's otel-lgtm |
 | I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | Planned | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
 | I3c | Private network: VNet, private endpoints, private DNS, Tailscale subnet router | I3a | M2 | Planned | From the Mac and `192.168.1.7`, the account and vault names resolve to private IPs and work; from outside the tailnet they don't resolve to a reachable endpoint |
 | I3b | Apply dev storage behind the private network (R3) | I3c, core L4a | M2 | Planned | Core's contract suite passes against the accounts; a plan from a clean checkout shows no drift |
+| I3d | Azure Monitor: Terraform written and checked, applied with I3b (R3) | I3a, I3c, core ADR 0009 | M2 | Planned | Per-region Log Analytics workspace, Azure Monitor workspace (managed Prometheus) and Managed Grafana, private access only; the dev collector's Azure pipeline delivers a test span, metric and log to each; the audit log pipeline lands in locked-retention storage, not only Log Analytics |
 | I4 | k3s lab cluster on `192.168.1.7` (R4) | L0c, E3a | M2 | Planned | `make dev-up` from a clean host gives a cluster the core e2e suite passes on |
 | I5 | Regional stamp, identities, GitHub OIDC (core L2) | L2, E6 | M3 | Planned | Stamp compliant under Azure Policy; a non-main branch can't get an apply token |
 
@@ -34,8 +35,8 @@ never shares or collides with other projects on the same host and an environment
 ## I1: dev dependencies (R1)
 
 - `local/compose.yaml`, profile `deps`: `pgvector/pgvector` with a fixed major version, Azurite with four named
-  accounts (landing, client IP, records, platform), matching architecture §02. Pinned image digests.
-- Ports bound to `127.0.0.1` only (Postgres 55432, Blob 10100). Credentials are generated per environment into
+  accounts (landing, client IP, records, platform), matching architecture §02. `grafana/otel-lgtm` (collector, Prometheus, Loki, Tempo, Grafana) so services export OTLP from core L0a. Pinned image digests.
+- Ports bound to `127.0.0.1` only (Postgres 55432, Blob 10100, Grafana 13000, OTLP gRPC 14317 and HTTP 14318). Credentials are generated per environment into
   `local/.env.<env>` (gitignored) by `scripts/dev-env.sh`; core refuses shared-key access outside the `dev` profile.
 - `Makefile`: `deps-up`, `deps-down`, `deps-logs`.
 
@@ -46,9 +47,8 @@ never shares or collides with other projects on the same host and an environment
 - Keycloak in dev mode with the `lab` and `client` realms, applied by `terraform/modules/keycloak` pointed at
   `localhost`: the same module I5 uses later. Seeded clients for the locker, the seal worker, `locker-upload`
   (device flow) and a test service outside the locker's capability map.
-- Lowkey Vault (signing key), ClamAV (signatures cached in a volume), grafana/otel-lgtm with an OTel collector
-  config shared with I4.
-- `--lite` drops otel-lgtm.
+- Lowkey Vault (signing key), ClamAV (signatures cached in a volume). Services export to I1's otel-lgtm; the OTel
+  collector config is shared with I4 and I3d.
 
 ## I3: Azure dev storage and Key Vault (R3)
 
@@ -94,6 +94,16 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
 - Terraform state: its own storage account, reachable from the workstation by IP allowlist while bootstrapping,
   then moved behind a private endpoint once I3c exists.
 - Later: when I5 builds the hub network, an Azure VPN Gateway (point-to-site) can replace the router.
+
+### I3d: Azure Monitor, written and checked
+
+- Per ADR 0009 in core: services only speak OTLP to a collector; the collector routes. Locally that is otel-lgtm;
+  in Azure the collector exports metrics to an Azure Monitor workspace (managed Prometheus), traces and operational
+  logs to Application Insights and a Log Analytics workspace, and Managed Grafana reads both.
+- One Log Analytics workspace per region (data residency); short operational retention.
+- Audit logs take a second collector pipeline to locked-retention storage in the platform account, so audit evidence
+  never depends on Log Analytics retention alone.
+- Private access only (Azure Monitor Private Link Scope through I3c); written now, applied with I3b.
 
 ### I3b: apply
 
