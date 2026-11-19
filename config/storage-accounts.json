@@ -1,0 +1,9 @@
+{
+  "_comment": "Storage account roles (architecture section 02). Names are prefix + environment suffix, for example stlnddev. Read by local/ (Azurite) and terraform/ (Azure) so the two never drift.",
+  "accounts": {
+    "landing":  { "prefix": "stlnd",  "holds": "uploads in flight and quarantine" },
+    "clientip": { "prefix": "stcip",  "holds": "client IP: source snapshots, PAR sheets, builds" },
+    "records":  { "prefix": "strec",  "holds": "lab records: execution evidence, reports, attestations" },
+    "platform": { "prefix": "stplat", "holds": "harness and agent bundles, runner image manifests, test plan versions" }
+  }
+}

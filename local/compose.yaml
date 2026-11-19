@@ -1,0 +1,82 @@
+# Local SDP stack (core rung R1 dependencies, infra phase I1).
+# Everything is namespaced by environment: project sdp-<env>, <service>-<env> containers,
+# sdp-<env>-net network, sdp-<env>-<service> volumes. Ports bind to 127.0.0.1 only.
+# Run through the Makefile (make deps-up), which supplies --env-file local/.env.<env>.
+name: sdp-${SDP_ENV:?run make deps-up}
+
+services:
+  postgres:
+    container_name: postgres-${SDP_ENV}
+    # pgvector 0.8.2 on PostgreSQL 17, pinned by digest.
+    image: pgvector/pgvector:0.8.2-pg17@sha256:feb68f4f15446397d8cac7f4fe48fe4586de83160d1fc48b46283312d1a33966
+    profiles: [deps]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:${SDP_PG_PORT:-55432}:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    networks: [net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  azurite:
+    container_name: azurite-${SDP_ENV}
+    # Azurite 3.35.0, pinned by digest. Blob service only; accounts from AZURITE_ACCOUNTS.
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0@sha256:647c63a91102a9d8e8000aab803436e1fc85fbb285e7ce830a82ee5d6661cf37
+    profiles: [deps]
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--location", "/data", "--skipApiVersionCheck"]
+    environment:
+      AZURITE_ACCOUNTS: ${AZURITE_ACCOUNTS}
+    ports:
+      - "127.0.0.1:${SDP_BLOB_PORT:-10100}:10000"
+    volumes:
+      - azurite:/data
+    networks: [net]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  lgtm:
+    container_name: lgtm-${SDP_ENV}
+    # grafana/otel-lgtm 0.11.10, pinned by digest: OTel collector, Prometheus, Loki, Tempo, Grafana.
+    image: grafana/otel-lgtm:0.11.10@sha256:09d8c3ce4f3a5f2f5b1ef7a3cc526a7e03b608aeef3ea1c67c912df43b2690c9
+    profiles: [deps]
+    ports:
+      - "127.0.0.1:${SDP_GRAFANA_PORT:-13000}:3000"
+      - "127.0.0.1:${SDP_OTLP_GRPC_PORT:-14317}:4317"
+      - "127.0.0.1:${SDP_OTLP_HTTP_PORT:-14318}:4318"
+    volumes:
+      - lgtm:/data
+    networks: [net]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+    labels:
+      sdp.env: ${SDP_ENV}
+
+networks:
+  net:
+    name: sdp-${SDP_ENV}-net
+
+volumes:
+  postgres:
+    name: sdp-${SDP_ENV}-postgres
+  azurite:
+    name: sdp-${SDP_ENV}-azurite
+  lgtm:
+    name: sdp-${SDP_ENV}-lgtm
