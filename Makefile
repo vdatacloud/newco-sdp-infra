@@ -27,6 +27,16 @@ app-down: env-render ## Stop and remove the app profile containers; deps keep ru
 app-logs: env-render ## Follow the app profile logs
 	@$(APP_COMPOSE) logs -f $(APP_SERVICES)
 
+TF_IDP := terraform -chdir=terraform/envs/dev
+.PHONY: idp-apply idp-issuers
+idp-apply: deps-up ## Apply the lab and clients realms to keycloak-$(ENV) (local state in local/, gitignored)
+	@$(TF_IDP) init -input=false -backend-config=path=$(abspath local/terraform-$(ENV).tfstate) >/dev/null
+	@TF_VAR_keycloak_admin_password=$$(sed -n 's/^KEYCLOAK_ADMIN_PASSWORD=//p' $(ENV_FILE)) \
+	  $(TF_IDP) apply -input=false -auto-approve
+
+idp-issuers: ## Print the issuer URLs (secrets: terraform -chdir=terraform/envs/dev output -json)
+	@$(TF_IDP) output issuers
+
 .PHONY: help env-check env-diff env-render deps-env deps-up deps-down deps-reset deps-ps deps-logs deps-info
 
 help: ## List targets
