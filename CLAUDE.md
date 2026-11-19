@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Infrastructure for the SDP certification platform: Terraform for the regional stamps, global resources, identities
 and Keycloak; the Helm platform chart; and the local stack (k3s or Colima, Keycloak, Azurite, Postgres, Lowkey
-Vault, ClamAV, Ollama, otel-lgtm) that `newco-sdp-core`'s integration work runs against. The layout is still to be
-set (core plans: locker phase 0, `L2`, `E6`).
+Vault, ClamAV, Ollama, otel-lgtm) that `newco-sdp-core`'s integration work runs against. Phases are in
+`PLAN.md` (`I1` to `I5`, serving core's `L0a` to `L0c`, `L2a`, `L2` and `E6`).
 
 ## Rules
 - **Infra depends on nothing in the app repos** except their published images and charts.
