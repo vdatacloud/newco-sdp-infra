@@ -35,8 +35,8 @@ never shares or collides with other projects on the same host and an environment
 
 - `local/compose.yaml`, profile `deps`: `pgvector/pgvector` with a fixed major version, Azurite with four named
   accounts (landing, client IP, records, platform), matching architecture §02. Pinned image digests.
-- Ports bound to `127.0.0.1` only. No secrets in the file: the Azurite well-known dev key is the only key, and core
-  refuses it outside the `dev` profile.
+- Ports bound to `127.0.0.1` only (Postgres 55432, Blob 10100). Credentials are generated per environment into
+  `local/.env.<env>` (gitignored) by `scripts/dev-env.sh`; core refuses shared-key access outside the `dev` profile.
 - `Makefile`: `deps-up`, `deps-down`, `deps-logs`.
 
 ## I2: compose app profile (R2)
