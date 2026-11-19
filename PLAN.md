@@ -31,8 +31,8 @@ never shares or collides with other projects on the same host and an environment
 
 ## I1: dev dependencies (R1)
 
-- `local/compose.yaml`, profile `deps`: `pgvector/pgvector` with a fixed major version, Azurite with three named
-  accounts (landing, client IP, records). Pinned image digests.
+- `local/compose.yaml`, profile `deps`: `pgvector/pgvector` with a fixed major version, Azurite with four named
+  accounts (landing, client IP, records, platform), matching architecture §02. Pinned image digests.
 - Ports bound to `127.0.0.1` only. No secrets in the file: the Azurite well-known dev key is the only key, and core
   refuses it outside the `dev` profile.
 - `Makefile`: `deps-up`, `deps-down`, `deps-logs`.
@@ -53,11 +53,11 @@ never shares or collides with other projects on the same host and an environment
 - Check the active Azure subscription is the SDP one before any plan or apply (the workstation default belongs to
   another organization).
 - `terraform/modules/storage-accounts` (the storage subset of the regional stamp, so I5 reuses it): landing,
-  client-IP and records accounts; versioning, change feed, version-level immutability support, blob index tags,
+  client-IP and records accounts, plus a dev platform account (global and replicated from I5 on); versioning, change feed, version-level immutability support, blob index tags,
   shared-key access disabled, CORS on landing for PUT and OPTIONS from the dev portal origin, Cool and Cold tiers
   only. Network rules allow only the lab's egress address.
 - Key Vault (RBAC mode) with the receipt signing key.
-- A dev service principal with a certificate credential: Storage Blob Data Owner on the three accounts (needed for
+- A dev service principal with a certificate credential: Storage Blob Data Owner on the four accounts (needed for
   user delegation keys, holds and tags), Key Vault Crypto User. The certificate stays in the workstation keychain,
   never in this repo or state outputs.
 - `terraform/envs/dev-storage/` with remote state in its own storage account; applied from a workstation until I5
