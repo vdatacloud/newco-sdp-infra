@@ -42,7 +42,11 @@ The jobs a repo runs are the files in its `.github/workflows/`; read them rather
 
 ## Branch protection
 
-The `vdatacloud` org is on a paid plan, so every repo can protect `main`. The settings live in GitHub, not here;
-check them with `gh api repos/vdatacloud/<repo>/branches/main/protection`. Required checks are the stable job
-names (`Signed commits` everywhere, `Shared files` outside core); matrix job names change with the modules and are
-not required. Changing protection is a user decision: propose it, don't apply it unasked.
+Every repo protects `main` with a repository ruleset (PRs only, signed commits, no deletion or force push), not
+classic branch protection, so `gh api repos/vdatacloud/<repo>/branches/main/protection` answers "Branch not
+protected". The settings live in GitHub, not here; read them with
+`gh api repos/vdatacloud/<repo>/rulesets`, then `gh api repos/vdatacloud/<repo>/rulesets/<id>` for the rules,
+required checks and bypass actors. Required checks are stable job names: `Signed commits` everywhere, `Shared
+files` outside core, and in core also `graphify-out not modified`, `Release script tests` and `Contracts (buf)`.
+Matrix job names change with the modules and are not required. Core's only bypass is the graph deploy key, so
+CI can push the regenerated graph. Changing protection is a user decision: propose it, don't apply it unasked.
