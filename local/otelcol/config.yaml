@@ -1,0 +1,38 @@
+# OTel collector in front of otel-lgtm (core ADR 0009): services speak OTLP only
+# to this collector; it owns routing. Locally everything goes to lgtm; I3d adds
+# the Azure Monitor exporters and the audit pipeline to locked storage, and I4
+# reuses this file in the cluster.
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+
+processors:
+  memory_limiter: { check_interval: 1s, limit_mib: 256 }
+  batch: {}
+  # Belt and braces behind the services' own scrubbing: drop attributes that
+  # must never leave a service (AUDIT_LOGGING.md).
+  attributes/scrub:
+    actions:
+      - { key: http.request.header.authorization, action: delete }
+      - { key: user.email, action: delete }
+      - { key: enduser.id, action: delete }
+      - { key: url.query, action: delete }
+
+exporters:
+  otlp_grpc/lgtm:
+    endpoint: ${env:LGTM_OTLP_ENDPOINT}
+    tls: { insecure: true }
+
+extensions:
+  health_check: { endpoint: 0.0.0.0:13133 }
+
+service:
+  extensions: [health_check]
+  telemetry:
+    logs: { level: warn }
+  pipelines:
+    traces:  { receivers: [otlp], processors: [memory_limiter, attributes/scrub, batch], exporters: [otlp_grpc/lgtm] }
+    metrics: { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlp_grpc/lgtm] }
+    logs:    { receivers: [otlp], processors: [memory_limiter, attributes/scrub, batch], exporters: [otlp_grpc/lgtm] }
