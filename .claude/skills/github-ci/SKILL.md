@@ -14,7 +14,8 @@ carry a byte-identical copy that the `repo-policy` workflow checks. Edit it in c
   go-ahead for that push, and only for a critical fix.
 - **Branches:** `feature/`, `fix/`, `docs/`, `chore/` (tooling, dependencies, CI), `sec/` (security fixes, with
   `fix:` commits so they release), `integration/<name>` (batched small changes or a phase's slices; CI doesn't run
-  until its PR, so run the local gate first). Never open a PR to `main` for one small change.
+  until its PR, so run the local gate first). Never open a PR to `main` for one small change, except during setup
+  (M0 and repo tooling), when small single-purpose PRs are fine. Merged head branches are deleted automatically.
 - **Every commit is signed off and signed:** `git commit -s` with `commit.gpgsign=true` (SSH or GPG key registered
   on GitHub, so it shows Verified). The `repo-policy` workflow fails a PR with any commit that is unverified or
   lacks `Signed-off-by:`. Never pass `-c commit.gpgsign=false`; if signing fails, stop and say so.
