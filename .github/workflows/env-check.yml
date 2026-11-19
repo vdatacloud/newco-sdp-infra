@@ -1,0 +1,25 @@
+name: Environment definitions
+
+# Validates config/environments/*.yaml against its schema (phase I0). Runs only
+# when environment files, the Makefile or this workflow change.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['config/environments/**', 'Makefile', '.github/workflows/env-check.yml']
+  push:
+    branches: [main]
+    paths: ['config/environments/**', 'Makefile', '.github/workflows/env-check.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  env-check:
+    name: Environment definitions
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install check-jsonschema
+        run: pipx install check-jsonschema==0.39.0
+      - name: make env-check
+        run: yq --version && make env-check
