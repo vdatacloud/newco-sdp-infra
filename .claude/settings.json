@@ -5,6 +5,45 @@
       "Write(.github/workflows/**)",
       "Edit(.git/hooks/**)",
       "Write(.git/hooks/**)"
+    ],
+    "deny": [
+      "Read(**/.env.prod*)",
+      "Edit(**/.env.prod*)",
+      "Write(**/.env.prod*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.pfx)",
+      "Read(**/*.p12)",
+      "Read(**/kubeconfig*)",
+      "Read(~/.kube/**)",
+      "Read(~/.azure/**)",
+      "Edit(**/prod/**)",
+      "Write(**/prod/**)",
+      "Edit(**/production/**)",
+      "Write(**/production/**)",
+      "Edit(**/values-prod*.yaml)",
+      "Write(**/values-prod*.yaml)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin main:*)",
+      "Read(**/*prod*.tfvars)",
+      "Read(**/*prod*.tfvars.json)",
+      "Edit(**/*prod*.tfvars)",
+      "Write(**/*prod*.tfvars)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/prod-guard.py\"",
+            "timeout": 20
+          }
+        ]
+      }
     ]
   }
 }
