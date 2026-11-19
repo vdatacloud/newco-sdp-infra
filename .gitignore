@@ -42,3 +42,7 @@ terraform.rc
 # Optional: ignore plan files saved before destroying Terraform configuration
 # Uncomment the line below if you want to ignore planout files.
 # planout
+
+# graphify: local graphs are not committed. When this repo adopts core's update-graph workflow, which commits
+# graphify-out/ on main, replace this with core's narrower rule.
+graphify-out/
