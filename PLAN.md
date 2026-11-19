@@ -13,7 +13,7 @@ L2a"). Infra depends on nothing in the app repos except their published images a
 | I0 | Environment definitions in YAML | — | M1 | Done (#9) | `config/environments/<env>.yaml` is the only place an environment's non-secret values live; `make ENV=<env> <target>` reads it for compose, Terraform and Helm; a schema check fails CI on an unknown or missing key |
 | I1 | Dev dependencies in compose (R1) | L0a, L1 | M1 | Planned | `make deps-up` brings up Postgres, Azurite and otel-lgtm healthy; a test span, metric and log sent over OTLP show in Grafana; `make deps-down -v` leaves nothing behind |
 | I2a | Compose app profile and OTLP collector (R2) | L0b | M1 | Done (I2a PR) | Core's images run after one-shot migrate bootstrap and up, each with its own env file from core's `make app-env`; `otelcol-<env>` fronts otel-lgtm and owns the OTLP ports; logs, metrics and traces arrive |
-| I2b | Keycloak, Lowkey Vault, ClamAV (R2) | I2a | M1 | Planned | Keycloak (two realms via `terraform/modules/keycloak`), Lowkey Vault and ClamAV join the app profile; core L3's smoke gets a token from each realm |
+| I2b | Keycloak, Lowkey Vault, ClamAV (R2) | I2a | M1 | Done (I2b PR) | Keycloak (two realms via `terraform/modules/keycloak`), Lowkey Vault and ClamAV join the app profile; core L3's smoke gets a token from each realm |
 | I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | Planned | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
 | I3c | Private network: VNet, private endpoints, private DNS, Tailscale subnet router | I3a | M2 | Planned | From the Mac and `192.168.1.7`, the account and vault names resolve to private IPs and work; from outside the tailnet they don't resolve to a reachable endpoint |
 | I3b | Apply dev storage behind the private network (R3) | I3c, core L4a | M2 | Planned | Core's contract suite passes against the accounts; a plan from a clean checkout shows no drift |
@@ -53,14 +53,22 @@ never shares or collides with other projects on the same host and an environment
   `local/.env.<env>` (gitignored) by `scripts/dev-env.sh`; core refuses shared-key access outside the `dev` profile.
 - `Makefile`: `deps-up`, `deps-down`, `deps-logs`.
 
-## I2b: identity, keys and scanning in the app profile (R2)
+## I2b: identity, keys and scanning (R2), done
 
-I2a (done) added the `app` profile (core images by tag, migrate one-shots, per-service env files) and the collector.
-- Keycloak in dev mode with the `lab` and `client` realms, applied by `terraform/modules/keycloak` pointed at
-  `localhost`: the same module I5 uses later. Seeded clients for the locker, the seal worker, `locker-upload`
-  (device flow) and a test service outside the locker's capability map.
-- Lowkey Vault (signing key), ClamAV (signatures cached in a volume). Services export to I1's otel-lgtm; the OTel
-  collector config is shared with I4 and I3d.
+- `keycloak-<env>` (26.4.7, dev mode, `127.0.0.1:18180`), `lowkey-vault-<env>` (`127.0.0.1:18443`, vault
+  `sdp-<env>`) and `clamav-<env>` (clamd on 3310, network-internal, signatures in a volume), all pinned by digest.
+- `terraform/modules/keycloak` (reused by I5): realms `lab` and `clients`, §04's realm roles, a `locker-api`
+  audience scope attached to every client, `org` claim from a user attribute. Service clients `locker`,
+  `seal-worker` and `sdp-probe` (outside the capability map, for L3's negative test); `locker-upload` device flow.
+- `terraform/envs/dev` adds dev-only `dev-cli` password clients and three fake users (`dev-tester`, `dev-admin`,
+  `dev-client1` with `org` = devseed tenant1). Secrets are sensitive outputs; state is in `local/` (gitignored).
+  `make idp-apply` (idempotent, no drift on re-apply), `make idp-issuers`.
+- `scripts/dev-env.sh` now appends keys missing from an existing `local/.env.<env>` without touching existing
+  values (adds `KEYCLOAK_ADMIN_PASSWORD`).
+- Deviations: realm `clients`, not `client` (matches §04). `org` is a declared user-profile attribute that only
+  admins may view or edit (a user who sets their own `org` gets 400), not Keycloak Organizations. The three
+  services run in the `deps` profile, not `app`, because Terraform needs Keycloak before the app starts.
+  Keycloak and vault ports are compose defaults, not yet in `config/environments/*.yaml`.
 
 ## I3: Azure dev storage and Key Vault (R3)
 

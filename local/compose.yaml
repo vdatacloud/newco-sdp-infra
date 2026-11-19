@@ -87,6 +87,55 @@ services:
     labels:
       sdp.env: ${SDP_ENV}
 
+  keycloak:
+    container_name: keycloak-${SDP_ENV}
+    # Keycloak 26.4.7, pinned by digest. Dev mode (embedded H2 in the volume); realms come from
+    # terraform/envs/dev (make idp-apply), never from a realm import.
+    image: quay.io/keycloak/keycloak:26.4@sha256:9409c59bdfb65dbffa20b11e6f18b8abb9281d480c7ca402f51ed3d5977e6007
+    profiles: [deps]
+    command: ["start-dev", "--http-port=8080", "--health-enabled=true", "--hostname=http://127.0.0.1:${SDP_KEYCLOAK_PORT:-18180}"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?run make deps-env}
+    ports:
+      - "127.0.0.1:${SDP_KEYCLOAK_PORT:-18180}:8080"
+    volumes:
+      - keycloak:/opt/keycloak/data
+    networks: [net]
+    healthcheck:
+      # No curl in the image; probe the management port's readiness endpoint over bash /dev/tcp.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  lowkey-vault:
+    container_name: lowkey-vault-${SDP_ENV}
+    # Lowkey Vault 7.1.32 (Key Vault API emulator), pinned by digest. Holds dev signing keys only.
+    image: nagyesta/lowkey-vault:7.1.32@sha256:281cf30611fc314de18d30894d1bc3d3100ffbf02039a11a1d7e8c4a4952e59d
+    profiles: [deps]
+    environment:
+      LOWKEY_ARGS: "--server.port=8443 --LOWKEY_VAULT_NAMES=sdp-${SDP_ENV}"
+    ports:
+      - "127.0.0.1:${SDP_KEYVAULT_PORT:-18443}:8443"
+    networks: [net]
+    labels:
+      sdp.env: ${SDP_ENV}
+
+  clamav:
+    container_name: clamav-${SDP_ENV}
+    # ClamAV 1.5.5 (multi-arch debian build), pinned by digest. clamd on 3310, network-internal only;
+    # signatures persist in the volume so restarts skip the full download.
+    image: clamav/clamav-debian:stable@sha256:cb2b6fa0bf480a3c243117204b751f062c5350569d088dc269ebeef6b4331823
+    profiles: [deps]
+    volumes:
+      - clamav:/var/lib/clamav
+    networks: [net]
+    labels:
+      sdp.env: ${SDP_ENV}
+
   # ---- app profile (I2, core rung R2): core's images; env files from core's make app-env.
   migrate-bootstrap:
     container_name: migrate-bootstrap-${SDP_ENV}
@@ -150,3 +199,7 @@ volumes:
     name: sdp-${SDP_ENV}-azurite
   lgtm:
     name: sdp-${SDP_ENV}-lgtm
+  keycloak:
+    name: sdp-${SDP_ENV}-keycloak
+  clamav:
+    name: sdp-${SDP_ENV}-clamav
