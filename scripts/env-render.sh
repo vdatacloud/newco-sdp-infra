@@ -10,5 +10,5 @@ cd "$root"
 yq -o=shell '
   {"SDP_ENV": .env, "SDP_PG_PORT": .ports.postgres, "SDP_BLOB_PORT": .ports.blob,
    "SDP_GRAFANA_PORT": .ports.grafana, "SDP_OTLP_GRPC_PORT": .ports.otlp_grpc,
-   "SDP_OTLP_HTTP_PORT": .ports.otlp_http, "POSTGRES_DB": .postgres.db, "POSTGRES_USER": .postgres.admin_user}
+   "SDP_OTLP_HTTP_PORT": .ports.otlp_http, "SDP_CLAMAV_PORT": .ports.clamav, "POSTGRES_DB": .postgres.db, "POSTGRES_USER": .postgres.admin_user}
   | with_entries(select(.value != null))' "$src" > "$root/local/.config.$env"

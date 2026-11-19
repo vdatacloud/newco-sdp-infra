@@ -129,12 +129,16 @@ services:
 
   clamav:
     container_name: clamav-${SDP_ENV}
-    # ClamAV 1.5.5 (multi-arch debian build), pinned by digest. clamd on 3310, network-internal only;
-    # signatures persist in the volume so restarts skip the full download.
+    # ClamAV 1.5.5 (multi-arch debian build), pinned by digest. clamd on 3310, published on loopback
+    # for core's native seal worker (R1); signatures persist in the volume so restarts skip the full
+    # download. clamd.conf raises the stream limit above the worker's 256 MiB inline limit.
     image: clamav/clamav-debian:stable@sha256:cb2b6fa0bf480a3c243117204b751f062c5350569d088dc269ebeef6b4331823
     profiles: [deps]
+    ports:
+      - "127.0.0.1:${SDP_CLAMAV_PORT:-13310}:3310"
     volumes:
       - clamav:/var/lib/clamav
+      - ./clamav/clamd.conf:/etc/clamav/clamd.conf:ro
     networks: [net]
     labels:
       sdp.env: ${SDP_ENV}
