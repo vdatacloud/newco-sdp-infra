@@ -116,11 +116,14 @@ services:
 
   lowkey-vault:
     container_name: lowkey-vault-${SDP_ENV}
-    # Lowkey Vault 7.1.32 (Key Vault API emulator), pinned by digest. Holds dev signing keys only.
+    # Lowkey Vault 7.1.32 (Key Vault API emulator), pinned by digest. Holds dev signing and file-name keys only.
     image: nagyesta/lowkey-vault:7.1.32@sha256:281cf30611fc314de18d30894d1bc3d3100ffbf02039a11a1d7e8c4a4952e59d
     profiles: [deps]
     environment:
-      LOWKEY_ARGS: "--server.port=8443 --LOWKEY_VAULT_NAMES=sdp-${SDP_ENV}"
+      # Lowkey routes by host and port, so the vault gets two aliases: one for native clients on the
+      # host (https://sdp-<env>.localhost:<published port>) and one for containers on the network
+      # (https://lowkey-vault-<env>:8443). Core's devseed provisions its keys; they live in memory.
+      LOWKEY_ARGS: "--server.port=8443 --LOWKEY_VAULT_NAMES=sdp-${SDP_ENV} --LOWKEY_VAULT_ALIASES=sdp-${SDP_ENV}.localhost=sdp-${SDP_ENV}.localhost:${SDP_KEYVAULT_PORT:-18443},sdp-${SDP_ENV}.localhost=lowkey-vault-${SDP_ENV}:8443"
     ports:
       - "127.0.0.1:${SDP_KEYVAULT_PORT:-18443}:8443"
     networks: [net]

@@ -15,7 +15,8 @@
       "properties": {
         "postgres": { "$ref": "#/$defs/port" }, "blob": { "$ref": "#/$defs/port" },
         "grafana": { "$ref": "#/$defs/port" }, "otlp_grpc": { "$ref": "#/$defs/port" },
-        "otlp_http": { "$ref": "#/$defs/port" }, "clamav": { "$ref": "#/$defs/port" }
+        "otlp_http": { "$ref": "#/$defs/port" }, "clamav": { "$ref": "#/$defs/port" },
+        "keyvault": { "$ref": "#/$defs/port" }
       }
     },
     "k3s": {
