@@ -3,7 +3,7 @@
 env: dev
 target: compose
 region: local
-ports: { postgres: 55432, blob: 10100, grafana: 13000, otlp_grpc: 14317, otlp_http: 14318, clamav: 13310 }
+ports: { postgres: 55432, blob: 10100, grafana: 13000, otlp_grpc: 14317, otlp_http: 14318, clamav: 13310, keyvault: 18443 }
 postgres: { db: sdp_dev, admin_user: sdp_admin }
 storage:
   # Roles from architecture section 02. Account name = prefix + env (stlnddev). Shared by Azurite and Terraform.
