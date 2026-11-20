@@ -167,5 +167,8 @@ The first lookup after the router starts can time out while dnsmasq warms up; re
   access stays off) and cost a few dollars a month. A plain `make azure-plan` shows the network to add while
   parked; that is expected. `make azure-unpark` (the net stage) brings it back, then repeat the Tailscale console
   steps with a fresh single-use auth key in the keychain (the router is a new machine).
+  After parking, in the Tailscale console remove the two `10.42.2.4` split-DNS nameservers (`blob.core.windows.net`,
+  `vault.azure.net`), or every blob and vault lookup on the tailnet, any organisation's, goes to a dead resolver;
+  and remove the `newco-sdp-vm-1-dev` machine.
 - If Tailscale ever lapses nothing opens up: there is no inbound path. Alternatives are an Azure VPN Gateway
   (point-to-site, I5) or a temporary IP allowlist on the accounts and vault.
