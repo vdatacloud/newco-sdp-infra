@@ -70,3 +70,9 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "router_zone" {
+  type        = string
+  default     = "2"
+  description = "D2s_v5 in eastus2 is offered to the dev subscription only in zone 2 (2026-11-20)."
+}

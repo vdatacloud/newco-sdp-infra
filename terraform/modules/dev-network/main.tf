@@ -177,6 +177,7 @@ resource "azurerm_linux_virtual_machine" "router" {
   resource_group_name             = var.resource_group_name
   location                        = var.location
   size                            = var.router_size
+  zone                            = var.router_zone
   admin_username                  = "sdpadmin"
   disable_password_authentication = true
   network_interface_ids           = [azurerm_network_interface.router.id]
