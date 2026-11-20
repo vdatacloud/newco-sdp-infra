@@ -21,7 +21,9 @@ terraform {
 locals {
   realms = {
     lab = {
-      roles = ["tester", "reviewer", "cert_signer", "purge_approver", "lab_admin"]
+      # Lab staff rights come from the locker's assignments table (core §04), not the token; realm roles
+      # remain only where the locker also demands MFA.
+      roles = ["cert_signer", "purge_approver"]
     }
     clients = {
       roles = ["client_submitter", "client_viewer", "auditor"]
