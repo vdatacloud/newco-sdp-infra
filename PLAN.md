@@ -14,9 +14,9 @@ L2a"). Infra depends on nothing in the app repos except their published images a
 | I1 | Dev dependencies in compose (R1) | L0a, L1 | M1 | Planned | `make deps-up` brings up Postgres, Azurite and otel-lgtm healthy; a test span, metric and log sent over OTLP show in Grafana; `make deps-down -v` leaves nothing behind |
 | I2a | Compose app profile and OTLP collector (R2) | L0b | M1 | Done (I2a PR) | Core's images run after one-shot migrate bootstrap and up, each with its own env file from core's `make app-env`; `otelcol-<env>` fronts otel-lgtm and owns the OTLP ports; logs, metrics and traces arrive |
 | I2b | Keycloak, Lowkey Vault, ClamAV (R2) | I2a | M1 | Done (I2b PR) | Keycloak (two realms via `terraform/modules/keycloak`), Lowkey Vault and ClamAV join the app profile; core L3's smoke gets a token from each realm |
-| I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | Planned | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
-| I3c | Private network: VNet, private endpoints, private DNS, Tailscale subnet router | I3a | M2 | Planned | From the Mac and `192.168.1.7`, the account and vault names resolve to private IPs and work; from outside the tailnet they don't resolve to a reachable endpoint |
-| I3b | Apply dev storage behind the private network (R3) | I3c, core L4a | M2 | Planned | Core's contract suite passes against the accounts; a plan from a clean checkout shows no drift |
+| I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | Done (plan 2026-11-20: 10 to add, four accounts and the vault with public access off; tflint replaced by `terraform test`) | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
+| I3c | Private network: VNet, private endpoints, private DNS, Tailscale subnet router | I3a | M2 | Done (2026-11-20: the vault and four accounts resolve to 10.42.1.x over the tailnet; public endpoints refuse) | From the Mac and `192.168.1.7`, the account and vault names resolve to private IPs and work; from outside the tailnet they don't resolve to a reachable endpoint |
+| I3b | Apply dev storage behind the private network (R3) | I3c, core L4a | M2 | Applied 2026-11-20, no drift; contract suite waits for core L2a | Core's contract suite passes against the accounts; a plan from a clean checkout shows no drift |
 | I3d | Azure Monitor: Terraform written and checked, applied with I3b (R3) | I3a, I3c, core ADR 0009 | M2 | Planned | Per-region Log Analytics workspace, Azure Monitor workspace (managed Prometheus) and Managed Grafana, private access only; the dev collector's Azure pipeline delivers a test span, metric and log to each; the audit log pipeline lands in locked-retention storage, not only Log Analytics |
 | I4 | k3s lab cluster on `192.168.1.7` (R4) | L0c, E3a | M2 | Planned | `make dev-up` from a clean host gives a cluster the core e2e suite passes on |
 | I5 | Regional stamp, identities, GitHub OIDC (core L2) | L2, E6 | M3 | Planned | Stamp compliant under Azure Policy; a non-main branch can't get an apply token |
@@ -78,6 +78,8 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
 - Check the active Azure subscription is the SDP one before any plan or apply (the workstation default belongs to
   another organization).
 
+Setup, operations and the snags met on the first build: `docs/AZURE_DEV.md`.
+
 ### I3a: storage and Key Vault, written and checked
 
 - `terraform/modules/storage-accounts` (the storage subset of the regional stamp, so I5 reuses it): landing,
@@ -93,6 +95,14 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
   drift.
 - `terraform/envs/dev-storage/`. Checks without Azure: `terraform validate`, `tflint`, and policy checks for the
   §02 rules (shared key off, public access off, versioning on, no Archive tier).
+- As written (2026-11-20): environment `azdev` (`config/environments/azdev.yaml`, target `azure`, eastus2). Names
+  follow `<client>-<project>-<type>-<instance>-<stage>` (`newco-sdp-rg-1-dev`, `newco-sdp-kv-1-dev`); storage
+  accounts drop the hyphens and use the role's `short` (`newcosdplnd1dev`, `newcosdpcip1dev`, `newcosdprec1dev`,
+  `newcosdpplat1dev`). Policy checks are `terraform test` with a mocked provider (`make azure-check`); tflint is
+  not yet a host tool. Terraform signs in as `sp-tf-workload-sdp-dev` with its certificate; `make azure-plan`
+  reads the certificate password from the keychain item of that name. The workload principal's role
+  assignments apply only when `workload_principal_id` is set. The receipt key `receipts` (P-256) and the
+  platform containers need data-plane or private access, so they are created at I3b.
 - Per-tenant containers and encryption scopes are not in Terraform: core's provisioner (and `devseed` for now)
   creates them. Terraform creates only the platform account's containers.
 
@@ -111,8 +121,15 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
   through the host.
 - Sign-in to Entra and Azure Resource Manager stays public, so `plan` and `apply` work from anywhere. Data-plane
   steps (platform containers, the contract suite) run from a tailnet machine.
-- Terraform state: its own storage account, reachable from the workstation by IP allowlist while bootstrapping,
-  then moved behind a private endpoint once I3c exists.
+- Terraform state: local and gitignored (`local/terraform-azdev-storage.tfstate`) while one person works the stamp
+  and can rebuild it (user decision, 2026-11-20). A private state account comes with I5 or a second contributor.
+- As written (2026-11-20): `terraform/modules/dev-network`, called from `envs/dev-storage` so endpoints follow
+  the accounts. VNet `10.42.0.0/16` (`network` in `azdev.yaml`), NAT gateway for the router's outbound only (new
+  subnets have no default outbound), router at `10.42.2.4` running dnsmasq that forwards to Azure's resolver;
+  tailnet split DNS for `blob.core.windows.net` and `vault.azure.net` points there. The router is D2s_v5 (B-series is
+  not offered to the subscription in eastus2) with a 19:00 Eastern auto-shutdown; `make azure-router-start`/`-stop`. The Tailscale key comes from
+  keychain item `tailscale-sdp-dev`, lands in VM custom data and local state, so it must be one-off,
+  pre-approved and expire within a day.
 - Later: when I5 builds the hub network, an Azure VPN Gateway (point-to-site) can replace the router.
 
 ### I3d: Azure Monitor, written and checked

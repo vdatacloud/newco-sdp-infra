@@ -42,8 +42,8 @@ module "keycloak" {
   dev_users_enabled = true
   dev_users = {
     # Fake fixtures; devseed tenant1 is 0193a000-0000-7000-8000-000000000001.
-    "dev-tester"  = { realm = "lab", roles = ["tester"] }
-    "dev-admin"   = { realm = "lab", roles = ["lab_admin"] }
+    "dev-tester"  = { realm = "lab", roles = [] } # rights from devseed assignments
+    "dev-admin"   = { realm = "lab", roles = [] }
     "dev-client1" = { realm = "clients", roles = ["client_submitter"], org = "0193a000-0000-7000-8000-000000000001" }
   }
 }

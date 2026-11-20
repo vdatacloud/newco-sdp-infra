@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=schema.json
+# R3: Azure dev stamp (infra I3). Non-secret only; the Terraform certificate password comes from the keychain.
+env: azdev
+target: azure
+region: eastus2
+naming: { client: newco, project: sdp, instance: 1, stage: dev }
+# Required by Azure Policy on the newco-sdp-dev management group (Owner, Project, Environment on resource groups,
+# inherited by resources); Terraform sets them everywhere so the inheritance policy shows no drift.
+owner: dhushon
+azure:
+  subscription_id: c6ef8803-0d6b-4361-aa26-c510d6cc6f27   # newco-sdp-dev
+  tenant_id: d7e35a83-2b67-4131-9f1e-41caad11aa1c
+  terraform_client_id: 7f32bda4-6089-4cee-a386-8ebef2a5ed62  # sp-tf-workload-sdp-dev
+  terraform_certificate_path: ~/.azure/certs/sp-tf-workload-sdp-dev.pfx
+  workload_client_id: acef2705-7c45-4289-9463-70324549281c     # sp-sdp-locker-dev (locker, seal worker)
+  workload_principal_id: 6a35ddd5-7347-42af-af04-d8cb10168300  # its service principal object ID
+  portal_origins: []
+network:
+  address_space: 10.42.0.0/16
+  pe_subnet: 10.42.1.0/24
+  router_subnet: 10.42.2.0/27
+  admin_ssh_public_key_path: ~/.ssh/dhushon_id_ed25519.pub  # break-glass; daily access is Tailscale SSH
+storage:
+  # Roles from architecture section 02. Same roles as Azurite; Azure names use `short`.
+  accounts:
+    landing:  { prefix: stlnd,  short: lnd,  holds: "uploads in flight and quarantine" }
+    clientip: { prefix: stcip,  short: cip,  holds: "client IP: source snapshots, PAR sheets, builds" }
+    records:  { prefix: strec,  short: rec,  holds: "lab records: execution evidence, reports, attestations" }
+    platform: { prefix: stplat, short: plat, holds: "harness and agent bundles, runner image manifests, test plan versions" }
+telemetry: { otlp_endpoint: "http://127.0.0.1:4318", operational_log_days: 7 }
