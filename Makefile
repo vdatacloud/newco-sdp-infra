@@ -41,7 +41,7 @@ AZ_ENV ?= azdev
 TF_AZ := terraform -chdir=terraform/envs/dev-storage
 AZ_KEYCHAIN_ITEM ?= sp-tf-workload-sdp-dev
 AZ_SUB := $(shell sed -n 's/^ *subscription_id: *\([0-9a-f-]*\).*/\1/p' config/environments/$(AZ_ENV).yaml)
-.PHONY: azure-check azure-plan
+.PHONY: azure-check azure-plan azure-apply
 azure-check: ## Format, validate and policy-test the Azure Terraform (no Azure access)
 	@terraform fmt -check -recursive terraform
 	@for d in terraform/modules/storage-accounts terraform/modules/dev-network terraform/envs/dev-storage; do \
@@ -55,6 +55,21 @@ azure-plan: azure-check ## Plan the Azure dev stamp (I3a: plan only; apply is I3
 	@TF_VAR_client_certificate_password="$$(security find-generic-password -s $(AZ_KEYCHAIN_ITEM) -w)" \
 	  TF_VAR_tailscale_auth_key="$$(security find-generic-password -s tailscale-sdp-dev -w 2>/dev/null)" \
 	  $(TF_AZ) plan -input=false -var env_file=../../../config/environments/$(AZ_ENV).yaml
+
+# I3b, in stages: rg (then grant the RG-scoped roles), net (everything reachable over Resource Manager; then
+# approve the router's route and split DNS in Tailscale), key (data plane, over the tailnet).
+AZ_TF_ENV = TF_VAR_client_certificate_password="$$(security find-generic-password -s $(AZ_KEYCHAIN_ITEM) -w)" \
+	  TF_VAR_tailscale_auth_key="$$(security find-generic-password -s tailscale-sdp-dev -w 2>/dev/null)"
+AZ_TARGETS_rg  := -target=azurerm_resource_group.this
+AZ_TARGETS_net := -target=module.storage -target=module.network -target=azurerm_key_vault.this \
+	  -target=azurerm_role_assignment.blob_owner -target=azurerm_role_assignment.crypto_user
+AZ_TARGETS_key :=
+azure-apply: azure-check ## Apply the Azure dev stamp: STAGE=rg|net|key [APPROVE=1] (I3b)
+	@case "$(STAGE)" in rg|net|key) ;; *) echo "STAGE=rg|net|key"; exit 1;; esac
+	@test "$$(az account show --query id -o tsv 2>/dev/null)" = "$(AZ_SUB)" || \
+	  { echo "active az subscription is not $(AZ_ENV)'s: az account set --subscription $(AZ_SUB)"; exit 1; }
+	@$(TF_AZ) init -input=false -reconfigure -backend-config=path=$(abspath local/terraform-$(AZ_ENV)-storage.tfstate) >/dev/null
+	@$(AZ_TF_ENV) $(TF_AZ) apply -input=false $(if $(APPROVE),-auto-approve) -var env_file=../../../config/environments/$(AZ_ENV).yaml $(AZ_TARGETS_$(STAGE))
 
 .PHONY: help env-check env-diff env-render deps-env deps-up deps-down deps-reset deps-ps deps-logs deps-info
 
