@@ -168,7 +168,8 @@ resource "azurerm_role_assignment" "blob_owner" {
 # docs/AZURE_DEV.md). On AKS it moves to a separate onboarding identity: write
 # can also disable a scope, which the API identity should not be able to do.
 resource "azurerm_role_assignment" "scope_writer" {
-  for_each             = local.workload == "" ? {} : module.storage.ids
+  # Tenant accounts only: the platform account holds no tenant data.
+  for_each             = local.workload == "" ? {} : { for k, v in module.storage.ids : k => v if k != "platform" }
   scope                = each.value
   role_definition_name = "SDP Encryption Scope Writer"
   principal_id         = local.workload
