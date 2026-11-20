@@ -24,7 +24,7 @@ Naming: `<client>-<project>-<type>-<instance>-<stage>`. Storage account names ca
 | Identity | Used by | Rights |
 |---|---|---|
 | `sp-tf-workload-sdp-dev` (certificate) | Terraform | Contributor on the subscription; on the resource group, Key Vault Crypto Officer and Role Based Access Control Administrator **restricted** to assigning Storage Blob Data Owner and Key Vault Crypto User only |
-| `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner and SDP Encryption Scope Writer (custom) on the four accounts, Key Vault Crypto User on the vault (assigned by Terraform from `azure.workload_principal_id`) |
+| `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner and SDP Encryption Scope Writer (custom) on the four accounts, Key Vault Crypto User and Secrets Officer on the vault (assigned by Terraform from `azure.workload_principal_id`) |
 
 Both sign in with certificates; neither has a client secret. Keep the `.pfx`/`.pem` files outside every repo,
 mode 600.
@@ -97,7 +97,7 @@ az role assignment create --assignee $SP --role "Role Based Access Control Admin
 
 The two GUIDs are Storage Blob Data Owner and Key Vault Crypto User.
 
-**Encryption scope role (I3e).** Per-tenant encryption scopes are created by the locker at tenant onboarding,
+**Encryption scope and secrets roles (I3e).** Per-tenant encryption scopes are created by the locker at tenant onboarding,
 which needs `encryptionScopes/write` on the accounts. No built-in role is that narrow, and Contributor cannot
 create role definitions, so an owner creates the custom role once and widens the Terraform principal's condition
 to include it, then reapplies:
@@ -108,7 +108,7 @@ ROLE=$(az role definition list --custom-role-only --name "SDP Encryption Scope W
 az role assignment list --assignee $SP --scope $RG --role "Role Based Access Control Administrator" --query '[0].id' -o tsv \
   | xargs az role assignment delete --ids
 COND=$(cat <<EOF
-((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {b7e6dc6d-f1e8-4753-8033-0f276bb0955b, 12338af0-0e69-4776-bea7-57ae8d297424, $ROLE}))
+((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {b7e6dc6d-f1e8-4753-8033-0f276bb0955b, 12338af0-0e69-4776-bea7-57ae8d297424, b86a8fe4-44ce-4948-aee5-eccb2c155cd7, $ROLE}))
 EOF
 )
 az role assignment create --assignee $SP --role "Role Based Access Control Administrator" --scope $RG \
@@ -116,7 +116,8 @@ az role assignment create --assignee $SP --role "Role Based Access Control Admin
 make azure-apply STAGE=net
 ```
 
-This heredoc is unquoted so `$ROLE` expands; zsh does not history-expand inside a heredoc. A new custom role can
+`b86a8fe4-…` is Key Vault Secrets Officer: tenant name keys are vault secrets (core TD-12) that devseed creates
+and the locker reads. This heredoc is unquoted so `$ROLE` expands; zsh does not history-expand inside a heredoc. A new custom role can
 take a few minutes to become visible; rerun the apply if it says the role was not found. A scope `write` can also
 disable a scope (the tenant's data becomes unreadable), so on AKS this role goes to a separate onboarding identity
 with a federated credential, never to the locker API's identity.

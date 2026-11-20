@@ -174,6 +174,16 @@ resource "azurerm_role_assignment" "scope_writer" {
   principal_id         = local.workload
 }
 
+# Tenant name keys are vault secrets (core TD-12): the locker reads them and,
+# on azdev, devseed (same identity) creates them. On AKS reading and creating
+# split between the locker (Secrets User) and onboarding (Secrets Officer).
+resource "azurerm_role_assignment" "secrets_officer" {
+  count                = local.workload == "" ? 0 : 1
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = local.workload
+}
+
 resource "azurerm_role_assignment" "crypto_user" {
   count                = local.workload == "" ? 0 : 1
   scope                = azurerm_key_vault.this.id
