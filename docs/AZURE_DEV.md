@@ -161,5 +161,11 @@ The first lookup after the router starts can time out while dnsmasq warms up; re
   network removed (storage and vault kept). Private endpoints (~$37) and NAT (~$37 with its IP) dominate.
 - The Key Vault has purge protection: deleting it leaves it soft-deleted for 90 days, and recreating the same name
   recovers it (provider `recover_soft_deleted_key_vaults = true`), `receipts` key included.
+- **Park it** when no work needs Azure: `make azure-park` destroys only `module.network` (private endpoints, NAT and
+  its IP, router VM, VNet, private DNS); nothing depends on it, so storage accounts, the vault, the receipts key,
+  encryption scopes and role assignments stay. Storage and vault then have no reachable endpoint at all (public
+  access stays off) and cost a few dollars a month. A plain `make azure-plan` shows the network to add while
+  parked; that is expected. `make azure-unpark` (the net stage) brings it back, then repeat the Tailscale console
+  steps with a fresh single-use auth key in the keychain (the router is a new machine).
 - If Tailscale ever lapses nothing opens up: there is no inbound path. Alternatives are an Azure VPN Gateway
   (point-to-site, I5) or a temporary IP allowlist on the accounts and vault.
