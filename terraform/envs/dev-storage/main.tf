@@ -52,7 +52,14 @@ locals {
   }
   workload_principal_id = coalesce(var.workload_principal_id, try(local.azure.workload_principal_id, ""), "-")
   workload              = local.workload_principal_id == "-" ? "" : local.workload_principal_id
-  tags                  = { client = local.n.client, project = local.n.project, env = local.env.env, managed_by = "terraform" }
+  # Owner, Project and Environment are required by Azure Policy (see azdev.yaml).
+  tags = {
+    Owner       = local.env.owner
+    Project     = local.n.project
+    Environment = local.n.stage
+    Client      = local.n.client
+    ManagedBy   = "terraform"
+  }
 }
 
 provider "azurerm" {

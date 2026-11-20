@@ -4,6 +4,9 @@ env: azdev
 target: azure
 region: eastus2
 naming: { client: newco, project: sdp, instance: 1, stage: dev }
+# Required by Azure Policy on the newco-sdp-dev management group (Owner, Project, Environment on resource groups,
+# inherited by resources); Terraform sets them everywhere so the inheritance policy shows no drift.
+owner: dhushon
 azure:
   subscription_id: c6ef8803-0d6b-4361-aa26-c510d6cc6f27   # newco-sdp-dev
   tenant_id: d7e35a83-2b67-4131-9f1e-41caad11aa1c

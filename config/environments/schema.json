@@ -44,6 +44,7 @@
         }
       }
     },
+    "owner": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,30}$", "description": "Owner tag value (a handle, never an email)" },
     "naming": {
       "type": "object", "additionalProperties": false, "required": ["client", "project", "instance", "stage"],
       "description": "Azure names: <client>-<project>-<type>-<instance>-<stage> (newco-sdp-kv-1-dev); storage accounts drop the hyphens and use the account's short role (newcosdplnd1dev)",
@@ -83,7 +84,7 @@
   "allOf": [
     { "if": { "properties": { "target": { "const": "compose" } } }, "then": { "required": ["ports", "postgres"] } },
     { "if": { "properties": { "target": { "const": "k3s" } } }, "then": { "required": ["k3s"] } },
-    { "if": { "properties": { "target": { "const": "azure" } } }, "then": { "required": ["naming", "azure", "network"] } }
+    { "if": { "properties": { "target": { "const": "azure" } } }, "then": { "required": ["naming", "azure", "network", "owner"] } }
   ],
   "$defs": {
     "cidr": { "type": "string", "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$" },
