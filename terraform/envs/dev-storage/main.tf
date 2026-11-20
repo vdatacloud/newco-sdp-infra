@@ -163,6 +163,17 @@ resource "azurerm_role_assignment" "blob_owner" {
   principal_id         = local.workload
 }
 
+# Per-tenant encryption scopes (core L2a). The role is custom
+# (config/azure-roles/sdp-encryption-scope-writer.json, created once by an owner,
+# docs/AZURE_DEV.md). On AKS it moves to a separate onboarding identity: write
+# can also disable a scope, which the API identity should not be able to do.
+resource "azurerm_role_assignment" "scope_writer" {
+  for_each             = local.workload == "" ? {} : module.storage.ids
+  scope                = each.value
+  role_definition_name = "SDP Encryption Scope Writer"
+  principal_id         = local.workload
+}
+
 resource "azurerm_role_assignment" "crypto_user" {
   count                = local.workload == "" ? 0 : 1
   scope                = azurerm_key_vault.this.id
