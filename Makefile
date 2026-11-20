@@ -64,7 +64,8 @@ AZ_TF_ENV = TF_VAR_client_certificate_password="$$(security find-generic-passwor
 	  TF_VAR_tailscale_auth_key="$$(security find-generic-password -s tailscale-sdp-dev -w 2>/dev/null)"
 AZ_TARGETS_rg  := -target=azurerm_resource_group.this
 AZ_TARGETS_net := -target=module.storage -target=module.network -target=azurerm_key_vault.this \
-	  -target=azurerm_role_assignment.blob_owner -target=azurerm_role_assignment.crypto_user
+	  -target=azurerm_role_assignment.blob_owner -target=azurerm_role_assignment.crypto_user \
+	  -target=azurerm_role_assignment.scope_writer -target=azurerm_role_assignment.secrets_officer
 AZ_TARGETS_key :=
 azure-apply: azure-check ## Apply the Azure dev stamp: STAGE=rg|net|key [APPROVE=1] (I3b)
 	@case "$(STAGE)" in rg|net|key) ;; *) echo "STAGE=rg|net|key"; exit 1;; esac
