@@ -54,6 +54,10 @@ provider "azurerm" {
     }
   }
 
+  # The Terraform principal can't register providers; Microsoft.Storage and Microsoft.KeyVault are registered
+  # once by a subscription owner (az provider register).
+  resource_provider_registrations = "none"
+
   subscription_id             = local.azure.subscription_id
   tenant_id                   = local.azure.tenant_id
   client_id                   = local.azure.terraform_client_id
