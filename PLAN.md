@@ -119,14 +119,14 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
   through the host.
 - Sign-in to Entra and Azure Resource Manager stays public, so `plan` and `apply` work from anywhere. Data-plane
   steps (platform containers, the contract suite) run from a tailnet machine.
-- Terraform state: its own storage account, reachable from the workstation by IP allowlist while bootstrapping,
-  then moved behind a private endpoint once I3c exists.
+- Terraform state: local and gitignored (`local/terraform-azdev-storage.tfstate`) while one person works the stamp
+  and can rebuild it (user decision, 2026-11-20). A private state account comes with I5 or a second contributor.
 - As written (2026-11-20): `terraform/modules/dev-network`, called from `envs/dev-storage` so endpoints follow
   the accounts. VNet `10.42.0.0/16` (`network` in `azdev.yaml`), NAT gateway for the router's outbound only (new
   subnets have no default outbound), router at `10.42.2.4` running dnsmasq that forwards to Azure's resolver;
   tailnet split DNS for `blob.core.windows.net` and `vault.azure.net` points there. The Tailscale key comes from
   keychain item `tailscale-sdp-dev`, lands in VM custom data and local state, so it must be one-off,
-  pre-approved and expire within a day. Terraform state stays local until a state account is worth it.
+  pre-approved and expire within a day.
 - Later: when I5 builds the hub network, an Azure VPN Gateway (point-to-site) can replace the router.
 
 ### I3d: Azure Monitor, written and checked
