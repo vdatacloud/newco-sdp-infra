@@ -78,6 +78,8 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
 - Check the active Azure subscription is the SDP one before any plan or apply (the workstation default belongs to
   another organization).
 
+Setup, operations and the snags met on the first build: `docs/AZURE_DEV.md`.
+
 ### I3a: storage and Key Vault, written and checked
 
 - `terraform/modules/storage-accounts` (the storage subset of the regional stamp, so I5 reuses it): landing,

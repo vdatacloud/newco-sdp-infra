@@ -3,6 +3,12 @@ Terraform, Helm, and the local k3s, Keycloak and Azurite setup.
 
 How the SDP repos fit together: [`docs/REPOSITORIES.md`](docs/REPOSITORIES.md), a checked copy of the map in `newco-sdp-core`.
 
+## Azure dev stamp
+
+Storage, Key Vault and the private network in Azure (R3), reached over Tailscale: setup, operations and every
+snag met building it are in [`docs/AZURE_DEV.md`](docs/AZURE_DEV.md). `make azure-check`, `azure-plan`,
+`azure-apply STAGE=rg|net|key`, `azure-router-start|stop`.
+
 ## Local stack
 
 Postgres 17 with pgvector, otel-lgtm (Grafana on 13000, OTLP on 14317/14318) and Azurite with the four storage accounts (landing, client IP, records, platform) from
