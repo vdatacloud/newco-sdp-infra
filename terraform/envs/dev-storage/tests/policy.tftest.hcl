@@ -16,6 +16,7 @@ mock_provider "azurerm" {
 
 variables {
   workload_principal_id = "11111111-1111-1111-1111-111111111111"
+  tailscale_auth_key    = "tskey-test"
 }
 
 run "stamp_rules" {

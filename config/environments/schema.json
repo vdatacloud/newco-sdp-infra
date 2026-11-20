@@ -64,6 +64,14 @@
         "portal_origins": { "type": "array", "items": { "type": "string", "format": "uri" }, "description": "Browser origins allowed to PUT to the landing account (CORS)" }
       }
     },
+    "network": {
+      "type": "object", "additionalProperties": false,
+      "required": ["address_space", "pe_subnet", "router_subnet", "admin_ssh_public_key_path"],
+      "properties": {
+        "address_space": { "$ref": "#/$defs/cidr" }, "pe_subnet": { "$ref": "#/$defs/cidr" },
+        "router_subnet": { "$ref": "#/$defs/cidr" }, "admin_ssh_public_key_path": { "type": "string" }
+      }
+    },
     "telemetry": {
       "type": "object", "additionalProperties": false, "required": ["otlp_endpoint", "operational_log_days"],
       "properties": {
@@ -75,9 +83,10 @@
   "allOf": [
     { "if": { "properties": { "target": { "const": "compose" } } }, "then": { "required": ["ports", "postgres"] } },
     { "if": { "properties": { "target": { "const": "k3s" } } }, "then": { "required": ["k3s"] } },
-    { "if": { "properties": { "target": { "const": "azure" } } }, "then": { "required": ["naming", "azure"] } }
+    { "if": { "properties": { "target": { "const": "azure" } } }, "then": { "required": ["naming", "azure", "network"] } }
   ],
   "$defs": {
+    "cidr": { "type": "string", "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$" },
     "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
     "port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
     "account": {

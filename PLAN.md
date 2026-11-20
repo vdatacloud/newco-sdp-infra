@@ -15,7 +15,7 @@ L2a"). Infra depends on nothing in the app repos except their published images a
 | I2a | Compose app profile and OTLP collector (R2) | L0b | M1 | Done (I2a PR) | Core's images run after one-shot migrate bootstrap and up, each with its own env file from core's `make app-env`; `otelcol-<env>` fronts otel-lgtm and owns the OTLP ports; logs, metrics and traces arrive |
 | I2b | Keycloak, Lowkey Vault, ClamAV (R2) | I2a | M1 | Done (I2b PR) | Keycloak (two realms via `terraform/modules/keycloak`), Lowkey Vault and ClamAV join the app profile; core L3's smoke gets a token from each realm |
 | I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | Done (plan 2026-11-20: 10 to add, four accounts and the vault with public access off; tflint replaced by `terraform test`) | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
-| I3c | Private network: VNet, private endpoints, private DNS, Tailscale subnet router | I3a | M2 | Planned | From the Mac and `192.168.1.7`, the account and vault names resolve to private IPs and work; from outside the tailnet they don't resolve to a reachable endpoint |
+| I3c | Private network: VNet, private endpoints, private DNS, Tailscale subnet router | I3a | M2 | Written (plan 2026-11-20: 37 to add with I3a; apply is I3b) | From the Mac and `192.168.1.7`, the account and vault names resolve to private IPs and work; from outside the tailnet they don't resolve to a reachable endpoint |
 | I3b | Apply dev storage behind the private network (R3) | I3c, core L4a | M2 | Planned | Core's contract suite passes against the accounts; a plan from a clean checkout shows no drift |
 | I3d | Azure Monitor: Terraform written and checked, applied with I3b (R3) | I3a, I3c, core ADR 0009 | M2 | Planned | Per-region Log Analytics workspace, Azure Monitor workspace (managed Prometheus) and Managed Grafana, private access only; the dev collector's Azure pipeline delivers a test span, metric and log to each; the audit log pipeline lands in locked-retention storage, not only Log Analytics |
 | I4 | k3s lab cluster on `192.168.1.7` (R4) | L0c, E3a | M2 | Planned | `make dev-up` from a clean host gives a cluster the core e2e suite passes on |
@@ -121,6 +121,12 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
   steps (platform containers, the contract suite) run from a tailnet machine.
 - Terraform state: its own storage account, reachable from the workstation by IP allowlist while bootstrapping,
   then moved behind a private endpoint once I3c exists.
+- As written (2026-11-20): `terraform/modules/dev-network`, called from `envs/dev-storage` so endpoints follow
+  the accounts. VNet `10.42.0.0/16` (`network` in `azdev.yaml`), NAT gateway for the router's outbound only (new
+  subnets have no default outbound), router at `10.42.2.4` running dnsmasq that forwards to Azure's resolver;
+  tailnet split DNS for `blob.core.windows.net` and `vault.azure.net` points there. The Tailscale key comes from
+  keychain item `tailscale-sdp-dev`, lands in VM custom data and local state, so it must be one-off,
+  pre-approved and expire within a day. Terraform state stays local until a state account is worth it.
 - Later: when I5 builds the hub network, an Azure VPN Gateway (point-to-site) can replace the router.
 
 ### I3d: Azure Monitor, written and checked

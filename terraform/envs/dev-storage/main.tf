@@ -27,6 +27,13 @@ variable "client_certificate_password" {
   default   = null
 }
 
+variable "tailscale_auth_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "One-off, pre-approved, short-lived key for the subnet router (keychain item tailscale-sdp-dev)."
+}
+
 variable "workload_principal_id" {
   type        = string
   default     = null
@@ -38,7 +45,7 @@ locals {
   n      = local.env.naming
   azure  = local.env.azure
   suffix = "${local.n.instance}-${local.n.stage}"
-  name   = { for t in ["rg", "kv"] : t => "${local.n.client}-${local.n.project}-${t}-${local.suffix}" }
+  name   = { for t in ["rg", "kv", "vnet", "nsg", "nat", "pip", "pe", "vm"] : t => "${local.n.client}-${local.n.project}-${t}-${local.suffix}" }
   storage_names = {
     for role, a in local.env.storage.accounts :
     role => "${local.n.client}${local.n.project}${a.short}${local.n.instance}${local.n.stage}"
@@ -80,6 +87,31 @@ module "storage" {
   location            = azurerm_resource_group.this.location
   portal_origins      = try(local.azure.portal_origins, [])
   tags                = local.tags
+}
+
+module "network" {
+  source = "../../modules/dev-network"
+  names = {
+    vnet   = local.name.vnet, nsg = local.name.nsg, nat = local.name.nat, nat_ip = local.name.pip, pe = local.name.pe,
+    router = local.name.vm
+  }
+  resource_group_name  = azurerm_resource_group.this.name
+  location             = azurerm_resource_group.this.location
+  address_space        = local.env.network.address_space
+  pe_subnet            = local.env.network.pe_subnet
+  router_subnet        = local.env.network.router_subnet
+  storage_account_ids  = module.storage.ids
+  key_vault_id         = azurerm_key_vault.this.id
+  admin_ssh_public_key = file(pathexpand(local.env.network.admin_ssh_public_key_path))
+  tailscale_auth_key   = var.tailscale_auth_key
+  tags                 = local.tags
+}
+
+check "tailscale_key" {
+  assert {
+    condition     = var.tailscale_auth_key != ""
+    error_message = "No Tailscale auth key: the router will not join the tailnet. Store one as keychain item tailscale-sdp-dev before apply."
+  }
 }
 
 resource "azurerm_key_vault" "this" {
@@ -128,6 +160,10 @@ resource "azurerm_role_assignment" "crypto_user" {
 
 output "storage_accounts" {
   value = local.storage_names
+}
+
+output "router_ip" {
+  value = module.network.router_ip
 }
 
 output "key_vault_uri" {
