@@ -14,7 +14,7 @@ L2a"). Infra depends on nothing in the app repos except their published images a
 | I1 | Dev dependencies in compose (R1) | L0a, L1 | M1 | Planned | `make deps-up` brings up Postgres, Azurite and otel-lgtm healthy; a test span, metric and log sent over OTLP show in Grafana; `make deps-down -v` leaves nothing behind |
 | I2a | Compose app profile and OTLP collector (R2) | L0b | M1 | Done (I2a PR) | Core's images run after one-shot migrate bootstrap and up, each with its own env file from core's `make app-env`; `otelcol-<env>` fronts otel-lgtm and owns the OTLP ports; logs, metrics and traces arrive |
 | I2b | Keycloak, Lowkey Vault, ClamAV (R2) | I2a | M1 | Done (I2b PR) | Keycloak (two realms via `terraform/modules/keycloak`), Lowkey Vault and ClamAV join the app profile; core L3's smoke gets a token from each realm |
-| I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | Planned | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
+| I3a | Azure dev storage and Key Vault: Terraform written and checked, not applied (R3) | I1 | M2 | In progress (written; `make azure-check` passes; plan pending) | `validate`, `tflint` and policy checks pass; a plan shows the four accounts with public access off |
 | I3c | Private network: VNet, private endpoints, private DNS, Tailscale subnet router | I3a | M2 | Planned | From the Mac and `192.168.1.7`, the account and vault names resolve to private IPs and work; from outside the tailnet they don't resolve to a reachable endpoint |
 | I3b | Apply dev storage behind the private network (R3) | I3c, core L4a | M2 | Planned | Core's contract suite passes against the accounts; a plan from a clean checkout shows no drift |
 | I3d | Azure Monitor: Terraform written and checked, applied with I3b (R3) | I3a, I3c, core ADR 0009 | M2 | Planned | Per-region Log Analytics workspace, Azure Monitor workspace (managed Prometheus) and Managed Grafana, private access only; the dev collector's Azure pipeline delivers a test span, metric and log to each; the audit log pipeline lands in locked-retention storage, not only Log Analytics |
@@ -93,6 +93,14 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
   drift.
 - `terraform/envs/dev-storage/`. Checks without Azure: `terraform validate`, `tflint`, and policy checks for the
   §02 rules (shared key off, public access off, versioning on, no Archive tier).
+- As written (2026-11-20): environment `azdev` (`config/environments/azdev.yaml`, target `azure`, eastus2). Names
+  follow `<client>-<project>-<type>-<instance>-<stage>` (`newco-sdp-rg-1-dev`, `newco-sdp-kv-1-dev`); storage
+  accounts drop the hyphens and use the role's `short` (`newcosdplnd1dev`, `newcosdpcip1dev`, `newcosdprec1dev`,
+  `newcosdpplat1dev`). Policy checks are `terraform test` with a mocked provider (`make azure-check`); tflint is
+  not yet a host tool. Terraform signs in as `sp-tf-workload-sdp-dev` with its certificate; `make azure-plan`
+  reads the certificate password from the keychain item of that name. The workload principal's role
+  assignments apply only when `workload_principal_id` is set. The receipt key `receipts` (P-256) and the
+  platform containers need data-plane or private access, so they are created at I3b.
 - Per-tenant containers and encryption scopes are not in Terraform: core's provisioner (and `devseed` for now)
   creates them. Terraform creates only the platform account's containers.
 
