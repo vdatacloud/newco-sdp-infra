@@ -38,7 +38,9 @@ idp-issuers: ## Print the issuer URLs (secrets: terraform -chdir=terraform/envs/
 	@$(TF_IDP) output issuers
 
 AZ_ENV ?= azdev
-TF_AZ := terraform -chdir=terraform/envs/dev-storage
+# GODEBUG=netdns=go: resolve through the tailnet DNS (resolv.conf) rather than the macOS system resolver, which
+# can keep the public address for vault.azure.net and blob.core.windows.net and bypass the private endpoints.
+TF_AZ := GODEBUG=netdns=go terraform -chdir=terraform/envs/dev-storage
 AZ_KEYCHAIN_ITEM ?= sp-tf-workload-sdp-dev
 AZ_SUB := $(shell sed -n 's/^ *subscription_id: *\([0-9a-f-]*\).*/\1/p' config/environments/$(AZ_ENV).yaml)
 .PHONY: azure-check azure-plan azure-apply azure-router-start azure-router-stop
