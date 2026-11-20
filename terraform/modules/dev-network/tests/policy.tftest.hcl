@@ -38,6 +38,10 @@ run "network_rules" {
     error_message = "Each subnet denies inbound from the internet."
   }
   assert {
+    condition     = azurerm_dev_test_global_vm_shutdown_schedule.router.enabled
+    error_message = "The router shuts down nightly."
+  }
+  assert {
     condition     = azurerm_linux_virtual_machine.router.disable_password_authentication
     error_message = "No password sign-in on the router."
   }

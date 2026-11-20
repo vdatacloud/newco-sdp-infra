@@ -39,8 +39,20 @@ variable "key_vault_id" {
 }
 
 variable "router_size" {
+  type        = string
+  default     = "Standard_D2s_v5"
+  description = "B-series is not offered to the dev subscription in eastus2 (2026-11-20); D2s_v5 is the smallest allowed size."
+}
+
+variable "router_shutdown_time" {
+  type        = string
+  default     = "1900"
+  description = "Daily auto-shutdown (HHMM) in router_shutdown_timezone; start it again with make azure-router-start."
+}
+
+variable "router_shutdown_timezone" {
   type    = string
-  default = "Standard_B1s"
+  default = "Eastern Standard Time"
 }
 
 variable "admin_ssh_public_key" {

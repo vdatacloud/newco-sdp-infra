@@ -41,7 +41,7 @@ AZ_ENV ?= azdev
 TF_AZ := terraform -chdir=terraform/envs/dev-storage
 AZ_KEYCHAIN_ITEM ?= sp-tf-workload-sdp-dev
 AZ_SUB := $(shell sed -n 's/^ *subscription_id: *\([0-9a-f-]*\).*/\1/p' config/environments/$(AZ_ENV).yaml)
-.PHONY: azure-check azure-plan azure-apply
+.PHONY: azure-check azure-plan azure-apply azure-router-start azure-router-stop
 azure-check: ## Format, validate and policy-test the Azure Terraform (no Azure access)
 	@terraform fmt -check -recursive terraform
 	@for d in terraform/modules/storage-accounts terraform/modules/dev-network terraform/envs/dev-storage; do \
@@ -70,6 +70,14 @@ azure-apply: azure-check ## Apply the Azure dev stamp: STAGE=rg|net|key [APPROVE
 	  { echo "active az subscription is not $(AZ_ENV)'s: az account set --subscription $(AZ_SUB)"; exit 1; }
 	@$(TF_AZ) init -input=false -reconfigure -backend-config=path=$(abspath local/terraform-$(AZ_ENV)-storage.tfstate) >/dev/null
 	@$(AZ_TF_ENV) $(TF_AZ) apply -input=false $(if $(APPROVE),-auto-approve) -var env_file=../../../config/environments/$(AZ_ENV).yaml $(AZ_TARGETS_$(STAGE))
+
+AZ_RG := $(shell sed -n 's/^naming: { client: \([a-z]*\), project: \([a-z]*\), instance: \([0-9]\), stage: \([a-z]*\) }.*/\1-\2-rg-\3-\4/p' config/environments/$(AZ_ENV).yaml)
+AZ_VM := $(subst -rg-,-vm-,$(AZ_RG))
+azure-router-start: ## Start the Tailscale router VM (it stops itself each evening)
+	@az vm start -g $(AZ_RG) -n $(AZ_VM) --subscription $(AZ_SUB) -o none && echo "started $(AZ_VM)"
+
+azure-router-stop: ## Deallocate the router VM (no compute charge while stopped)
+	@az vm deallocate -g $(AZ_RG) -n $(AZ_VM) --subscription $(AZ_SUB) -o none && echo "deallocated $(AZ_VM)"
 
 .PHONY: help env-check env-diff env-render deps-env deps-up deps-down deps-reset deps-ps deps-logs deps-info
 

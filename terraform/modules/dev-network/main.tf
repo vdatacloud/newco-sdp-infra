@@ -215,3 +215,17 @@ resource "azurerm_linux_virtual_machine" "router" {
     ignore_changes = [custom_data]
   }
 }
+
+# The router is billed only while running: stop it every evening; start it when work begins.
+resource "azurerm_dev_test_global_vm_shutdown_schedule" "router" {
+  virtual_machine_id    = azurerm_linux_virtual_machine.router.id
+  location              = var.location
+  enabled               = true
+  daily_recurrence_time = var.router_shutdown_time
+  timezone              = var.router_shutdown_timezone
+  tags                  = var.tags
+
+  notification_settings {
+    enabled = false
+  }
+}

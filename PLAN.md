@@ -124,7 +124,8 @@ both exist and core needs R3 (I3b). Nothing is applied with public network acces
 - As written (2026-11-20): `terraform/modules/dev-network`, called from `envs/dev-storage` so endpoints follow
   the accounts. VNet `10.42.0.0/16` (`network` in `azdev.yaml`), NAT gateway for the router's outbound only (new
   subnets have no default outbound), router at `10.42.2.4` running dnsmasq that forwards to Azure's resolver;
-  tailnet split DNS for `blob.core.windows.net` and `vault.azure.net` points there. The Tailscale key comes from
+  tailnet split DNS for `blob.core.windows.net` and `vault.azure.net` points there. The router is D2s_v5 (B-series is
+  not offered to the subscription in eastus2) with a 19:00 Eastern auto-shutdown; `make azure-router-start`/`-stop`. The Tailscale key comes from
   keychain item `tailscale-sdp-dev`, lands in VM custom data and local state, so it must be one-off,
   pre-approved and expire within a day.
 - Later: when I5 builds the hub network, an Azure VPN Gateway (point-to-site) can replace the router.
