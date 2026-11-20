@@ -64,6 +64,10 @@ locals {
 
 provider "azurerm" {
   features {
+    # Shared key is off and the data plane is private: never poll the blob endpoint from Terraform.
+    storage {
+      data_plane_available = false
+    }
     key_vault {
       purge_soft_delete_on_destroy    = false
       recover_soft_deleted_key_vaults = true
@@ -73,6 +77,7 @@ provider "azurerm" {
   # The Terraform principal can't register providers; Microsoft.Storage and Microsoft.KeyVault are registered
   # once by a subscription owner (az provider register).
   resource_provider_registrations = "none"
+  storage_use_azuread             = true
 
   subscription_id             = local.azure.subscription_id
   tenant_id                   = local.azure.tenant_id
