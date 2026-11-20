@@ -59,6 +59,8 @@
       "properties": {
         "subscription_id": { "$ref": "#/$defs/uuid" }, "tenant_id": { "$ref": "#/$defs/uuid" },
         "terraform_client_id": { "$ref": "#/$defs/uuid" }, "terraform_certificate_path": { "type": "string" },
+        "workload_client_id": { "$ref": "#/$defs/uuid" },
+        "workload_principal_id": { "$ref": "#/$defs/uuid", "description": "Service principal object ID that gets the data roles" },
         "portal_origins": { "type": "array", "items": { "type": "string", "format": "uri" }, "description": "Browser origins allowed to PUT to the landing account (CORS)" }
       }
     },

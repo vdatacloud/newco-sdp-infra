@@ -29,8 +29,8 @@ variable "client_certificate_password" {
 
 variable "workload_principal_id" {
   type        = string
-  default     = ""
-  description = "Object ID of the dev workload principal (locker and seal worker). Empty: no role assignments."
+  default     = null
+  description = "Overrides azure.workload_principal_id from the environment file. Empty: no role assignments."
 }
 
 locals {
@@ -43,7 +43,9 @@ locals {
     for role, a in local.env.storage.accounts :
     role => "${local.n.client}${local.n.project}${a.short}${local.n.instance}${local.n.stage}"
   }
-  tags = { client = local.n.client, project = local.n.project, env = local.env.env, managed_by = "terraform" }
+  workload_principal_id = coalesce(var.workload_principal_id, try(local.azure.workload_principal_id, ""), "-")
+  workload              = local.workload_principal_id == "-" ? "" : local.workload_principal_id
+  tags                  = { client = local.n.client, project = local.n.project, env = local.env.env, managed_by = "terraform" }
 }
 
 provider "azurerm" {
@@ -111,17 +113,17 @@ resource "azurerm_key_vault_key" "receipts" {
 
 # Dev workload principal: Blob Data Owner (user delegation keys, holds, tags) and Crypto User.
 resource "azurerm_role_assignment" "blob_owner" {
-  for_each             = var.workload_principal_id == "" ? {} : module.storage.ids
+  for_each             = local.workload == "" ? {} : module.storage.ids
   scope                = each.value
   role_definition_name = "Storage Blob Data Owner"
-  principal_id         = var.workload_principal_id
+  principal_id         = local.workload
 }
 
 resource "azurerm_role_assignment" "crypto_user" {
-  count                = var.workload_principal_id == "" ? 0 : 1
+  count                = local.workload == "" ? 0 : 1
   scope                = azurerm_key_vault.this.id
   role_definition_name = "Key Vault Crypto User"
-  principal_id         = var.workload_principal_id
+  principal_id         = local.workload
 }
 
 output "storage_accounts" {
