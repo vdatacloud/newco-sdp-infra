@@ -38,7 +38,7 @@ module "keycloak" {
   source       = "../../modules/keycloak"
   ssl_required = "none"
   # sdp-probe sits outside the locker's capability map: L3's negative test.
-  service_clients   = ["locker", "seal-worker", "sdp-probe"]
+  service_clients   = ["locker", "seal-worker", "purge-worker", "sdp-probe"]
   dev_users_enabled = true
   dev_users = {
     # Fake fixtures; devseed tenant1 is 0193a000-0000-7000-8000-000000000001.

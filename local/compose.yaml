@@ -198,6 +198,20 @@ services:
     labels:
       sdp.env: ${SDP_ENV}
 
+  # Purge, offboarding and collapse under their own role and principal (core TD-14).
+  purge-worker:
+    container_name: purge-worker-${SDP_ENV}
+    image: ${PURGE_WORKER_IMAGE:-sdp-dev/purge-worker:local}
+    profiles: [app]
+    env_file: ${SDP_APP_ENV_DIR:-../../newco-sdp-core}/.env.app.${SDP_ENV}.purge-worker
+    ports:
+      - "127.0.0.1:${SDP_PURGE_WORKER_PORT:-18092}:18092"
+    networks: [net]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    labels:
+      sdp.env: ${SDP_ENV}
+
 networks:
   net:
     name: sdp-${SDP_ENV}-net
