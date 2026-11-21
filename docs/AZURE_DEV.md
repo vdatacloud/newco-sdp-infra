@@ -4,6 +4,9 @@ How the Azure dev environment (`azdev`, infra I3a to I3c) was built, and every s
 rebuilt from scratch. Non-secret values live in `config/environments/azdev.yaml`; secrets live only in the
 workstation keychain. Nothing here is client data.
 
+The order of phases and gates for any stamp, and what changes for staging and production, is in
+[ENVIRONMENT_BRINGUP.md](ENVIRONMENT_BRINGUP.md).
+
 ## What it is
 
 | Piece | Name | Notes |
@@ -23,11 +26,11 @@ Naming: `<client>-<project>-<type>-<instance>-<stage>`. Storage account names ca
 
 | Identity | Used by | Rights |
 |---|---|---|
-| `sp-tf-workload-sdp-dev` (certificate) | Terraform | Contributor on the subscription; on the resource group, Key Vault Crypto Officer and Role Based Access Control Administrator **restricted** to assigning Storage Blob Data Owner and Key Vault Crypto User only |
-| `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner and SDP Encryption Scope Writer (custom) on the four accounts, Key Vault Crypto User and Secrets Officer on the vault (assigned by Terraform from `azure.workload_principal_id`) |
-| purge worker principal (not created yet) | purge worker (core TD-14) | Storage Blob Data Owner and SDP Encryption Scope Writer on the three tenant accounts, Key Vault Crypto User on the vault (assigned by Terraform from `azure.purge_principal_id`; written and plan-tested, never applied) |
+| `sp-tf-workload-sdp-dev` (certificate) | Terraform | Contributor on the subscription; on the resource group, Key Vault Crypto Officer and Role Based Access Control Administrator **restricted** to assigning Storage Blob Data Owner, Key Vault Crypto User, Key Vault Secrets Officer, SDP Encryption Scope Writer and SDP Evidence Writer |
+| `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner on landing and platform; SDP Evidence Writer (custom: Owner without delete) on client IP and records; SDP Encryption Scope Writer (custom) on the three tenant accounts; Key Vault Crypto User and Secrets Officer on the vault (assigned by Terraform from `azure.workload_principal_id` and `azure.evidence_writer_role`) |
+| `sp-sdp-purge-dev` (certificate) | purge worker (core TD-14) | Storage Blob Data Owner and SDP Encryption Scope Writer on the three tenant accounts, Key Vault Crypto User on the vault (assigned by Terraform from `azure.purge_principal_id`; password in keychain `sp-sdp-purge-dev`). The only identity that can delete client IP or lab records |
 
-Both sign in with certificates; neither has a client secret. Keep the `.pfx`/`.pem` files outside every repo,
+All three sign in with certificates; none has a client secret. Keep the `.pfx`/`.pem` files outside every repo,
 mode 600.
 
 ## Prerequisites (one-off, as a subscription owner)

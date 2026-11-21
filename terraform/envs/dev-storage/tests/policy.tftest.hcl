@@ -18,6 +18,7 @@ variables {
   workload_principal_id = "11111111-1111-1111-1111-111111111111"
   purge_principal_id    = "22222222-2222-2222-2222-222222222222"
   tailscale_auth_key    = "tskey-test"
+  evidence_writer_role  = false # the baseline; run "evidence_writer" turns it on
 }
 
 run "stamp_rules" {
