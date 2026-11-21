@@ -25,6 +25,7 @@ Naming: `<client>-<project>-<type>-<instance>-<stage>`. Storage account names ca
 |---|---|---|
 | `sp-tf-workload-sdp-dev` (certificate) | Terraform | Contributor on the subscription; on the resource group, Key Vault Crypto Officer and Role Based Access Control Administrator **restricted** to assigning Storage Blob Data Owner and Key Vault Crypto User only |
 | `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner and SDP Encryption Scope Writer (custom) on the four accounts, Key Vault Crypto User and Secrets Officer on the vault (assigned by Terraform from `azure.workload_principal_id`) |
+| purge worker principal (not created yet) | purge worker (core TD-14) | Storage Blob Data Owner and SDP Encryption Scope Writer on the three tenant accounts, Key Vault Crypto User on the vault (assigned by Terraform from `azure.purge_principal_id`; written and plan-tested, never applied) |
 
 Both sign in with certificates; neither has a client secret. Keep the `.pfx`/`.pem` files outside every repo,
 mode 600.
