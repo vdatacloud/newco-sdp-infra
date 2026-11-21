@@ -66,7 +66,7 @@ run "no_purge_identity" {
   command = plan
 
   variables {
-    purge_principal_id = ""
+    purge_principal_id = "-" # explicit none; "" falls back to the environment file
   }
 
   assert {

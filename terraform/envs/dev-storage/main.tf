@@ -43,7 +43,7 @@ variable "workload_principal_id" {
 variable "purge_principal_id" {
   type        = string
   default     = null
-  description = "Overrides azure.purge_principal_id from the environment file: the purge worker's own identity (core TD-14). Empty: no purge role assignments."
+  description = "Overrides azure.purge_principal_id from the environment file: the purge worker's own identity (core TD-14). Empty uses the file; a single dash means none: no purge role assignments."
 }
 
 locals {

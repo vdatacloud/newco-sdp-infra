@@ -14,6 +14,8 @@ azure:
   terraform_certificate_path: ~/.azure/certs/sp-tf-workload-sdp-dev.pfx
   workload_client_id: acef2705-7c45-4289-9463-70324549281c     # sp-sdp-locker-dev (locker, seal worker)
   workload_principal_id: 6a35ddd5-7347-42af-af04-d8cb10168300  # its service principal object ID
+  purge_client_id: 97e73b1b-c3d2-4ba2-a124-138b232442a1     # sp-sdp-purge-dev (purge worker, core TD-14)
+  purge_principal_id: 76c45611-e300-4194-9ecc-d985f743480c  # its service principal object ID
   portal_origins: []
 network:
   address_space: 10.42.0.0/16

@@ -62,6 +62,8 @@
         "terraform_client_id": { "$ref": "#/$defs/uuid" }, "terraform_certificate_path": { "type": "string" },
         "workload_client_id": { "$ref": "#/$defs/uuid" },
         "workload_principal_id": { "$ref": "#/$defs/uuid", "description": "Service principal object ID that gets the data roles" },
+        "purge_client_id": { "$ref": "#/$defs/uuid", "description": "Purge worker's app (client) ID; core azdev-env.sh signs it in with its own certificate (TD-14)" },
+        "purge_certificate_path": { "type": "string", "description": "Purge worker's .pfx; default ~/.azure/certs/sp-sdp-purge-dev.pfx" },
         "purge_principal_id": { "$ref": "#/$defs/uuid", "description": "Purge worker's own principal object ID (core TD-14): Blob Data Owner and Scope Writer on tenant accounts, Crypto User on the vault" },
         "portal_origins": { "type": "array", "items": { "type": "string", "format": "uri" }, "description": "Browser origins allowed to PUT to the landing account (CORS)" }
       }
