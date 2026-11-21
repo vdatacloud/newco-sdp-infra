@@ -4,6 +4,9 @@ How the Azure dev environment (`azdev`, infra I3a to I3c) was built, and every s
 rebuilt from scratch. Non-secret values live in `config/environments/azdev.yaml`; secrets live only in the
 workstation keychain. Nothing here is client data.
 
+The order of phases and gates for any stamp, and what changes for staging and production, is in
+[ENVIRONMENT_BRINGUP.md](ENVIRONMENT_BRINGUP.md).
+
 ## What it is
 
 | Piece | Name | Notes |
@@ -23,11 +26,11 @@ Naming: `<client>-<project>-<type>-<instance>-<stage>`. Storage account names ca
 
 | Identity | Used by | Rights |
 |---|---|---|
-| `sp-tf-workload-sdp-dev` (certificate) | Terraform | Contributor on the subscription; on the resource group, Key Vault Crypto Officer and Role Based Access Control Administrator **restricted** to assigning Storage Blob Data Owner and Key Vault Crypto User only |
-| `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner and SDP Encryption Scope Writer (custom) on the four accounts, Key Vault Crypto User and Secrets Officer on the vault (assigned by Terraform from `azure.workload_principal_id`) |
-| purge worker principal (not created yet) | purge worker (core TD-14) | Storage Blob Data Owner and SDP Encryption Scope Writer on the three tenant accounts, Key Vault Crypto User on the vault (assigned by Terraform from `azure.purge_principal_id`; written and plan-tested, never applied) |
+| `sp-tf-workload-sdp-dev` (certificate) | Terraform | Contributor on the subscription; on the resource group, Key Vault Crypto Officer and Role Based Access Control Administrator **restricted** to assigning Storage Blob Data Owner, Key Vault Crypto User, Key Vault Secrets Officer, SDP Encryption Scope Writer and SDP Evidence Writer |
+| `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner on landing and platform; SDP Evidence Writer (custom: Owner without delete) on client IP and records; SDP Encryption Scope Writer (custom) on the three tenant accounts; Key Vault Crypto User and Secrets Officer on the vault (assigned by Terraform from `azure.workload_principal_id` and `azure.evidence_writer_role`) |
+| `sp-sdp-purge-dev` (certificate) | purge worker (core TD-14) | Storage Blob Data Owner and SDP Encryption Scope Writer on the three tenant accounts, Key Vault Crypto User on the vault (assigned by Terraform from `azure.purge_principal_id`; password in keychain `sp-sdp-purge-dev`). The only identity that can delete client IP or lab records |
 
-Both sign in with certificates; neither has a client secret. Keep the `.pfx`/`.pem` files outside every repo,
+All three sign in with certificates; none has a client secret. Keep the `.pfx`/`.pem` files outside every repo,
 mode 600.
 
 ## Prerequisites (one-off, as a subscription owner)
@@ -122,6 +125,30 @@ and the locker reads. This heredoc is unquoted so `$ROLE` expands; zsh does not 
 take a few minutes to become visible; rerun the apply if it says the role was not found. A scope `write` can also
 disable a scope (the tenant's data becomes unreadable), so on AKS this role goes to a separate onboarding identity
 with a federated credential, never to the locker API's identity.
+
+**Evidence writer role (core TD-14).** The locker workload (locker and seal worker) must not be able to delete sealed
+evidence; only the purge principal may. `SDP Evidence Writer` is Storage Blob Data Owner without blob or version
+delete. It replaces Owner on the client IP and records accounts; landing keeps Owner, because the seal path removes
+landing copies. An owner creates it once, widens the Terraform principal's condition to include it, then turns it on:
+
+```
+sed "s|{RG}|$RG|" config/azure-roles/sdp-evidence-writer.json > /tmp/sdp-evidence-writer.json
+az role definition create --role-definition @/tmp/sdp-evidence-writer.json
+SCOPE=$(az role definition list --custom-role-only --name "SDP Encryption Scope Writer" --query '[0].name' -o tsv)
+EVID=$(az role definition list --custom-role-only --name "SDP Evidence Writer" --query '[0].name' -o tsv)
+az role assignment list --assignee $SP --scope $RG --role "Role Based Access Control Administrator" --query '[0].id' -o tsv \
+  | xargs az role assignment delete --ids
+COND=$(cat <<EOF
+((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {b7e6dc6d-f1e8-4753-8033-0f276bb0955b, 12338af0-0e69-4776-bea7-57ae8d297424, b86a8fe4-44ce-4948-aee5-eccb2c155cd7, $SCOPE, $EVID}))
+EOF
+)
+az role assignment create --assignee $SP --role "Role Based Access Control Administrator" --scope $RG \
+  --condition-version 2.0 --condition "$COND"
+```
+
+Then set `evidence_writer_role: true` under `azure:` in `config/environments/azdev.yaml`, run
+`make azure-plan` (expect two Owner assignments destroyed and two `evidence_writer` created) and apply. In core,
+`make azure-contract AZ_NODELETE=1` proves it: `TestWorkloadCannotDelete` and a refused delete after a hold clears.
 
 **Tailscale console (after stage 2).** The router appears under Machines once it boots.
 

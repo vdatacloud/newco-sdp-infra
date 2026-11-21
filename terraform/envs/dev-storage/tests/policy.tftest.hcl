@@ -18,6 +18,7 @@ variables {
   workload_principal_id = "11111111-1111-1111-1111-111111111111"
   purge_principal_id    = "22222222-2222-2222-2222-222222222222"
   tailscale_auth_key    = "tskey-test"
+  evidence_writer_role  = false # the baseline; run "evidence_writer" turns it on
 }
 
 run "stamp_rules" {
@@ -66,11 +67,24 @@ run "no_purge_identity" {
   command = plan
 
   variables {
-    purge_principal_id = ""
+    purge_principal_id = "-" # explicit none; "" falls back to the environment file
   }
 
   assert {
     condition     = length(azurerm_role_assignment.purge_blob_owner) == 0 && length(azurerm_role_assignment.purge_crypto_user) == 0
     error_message = "Without a purge principal, no purge role assignments."
+  }
+}
+
+run "evidence_writer" {
+  command = plan
+
+  variables {
+    evidence_writer_role = true
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.evidence_writer) == 2 && !contains(keys(azurerm_role_assignment.blob_owner), "clientip") && !contains(keys(azurerm_role_assignment.blob_owner), "records") && contains(keys(azurerm_role_assignment.blob_owner), "landing")
+    error_message = "With the evidence writer role, client IP and records lose Blob Data Owner; landing keeps it."
   }
 }

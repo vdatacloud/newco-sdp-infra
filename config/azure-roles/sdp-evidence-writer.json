@@ -1,0 +1,20 @@
+{
+  "Name": "SDP Evidence Writer",
+  "IsCustom": true,
+  "Description": "Storage Blob Data Owner without delete, for the locker workload on the client IP and records accounts: write, copy, tag, tier, hold and retain sealed evidence, never delete a blob or version (only the purge worker may). {RG} is replaced with the resource group ID at creation.",
+  "Actions": [
+    "Microsoft.Storage/storageAccounts/blobServices/containers/read",
+    "Microsoft.Storage/storageAccounts/blobServices/containers/write",
+    "Microsoft.Storage/storageAccounts/blobServices/generateUserDelegationKey/action"
+  ],
+  "NotActions": [],
+  "DataActions": [
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/*"
+  ],
+  "NotDataActions": [
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/delete",
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/deleteBlobVersion/action",
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/permanentDelete/action"
+  ],
+  "AssignableScopes": ["{RG}"]
+}
