@@ -164,11 +164,32 @@ resource "azurerm_key_vault_key" "receipts" {
   key_opts     = ["sign", "verify"]
 }
 
-# Dev workload principal: Blob Data Owner (user delegation keys, holds, tags) and Crypto User.
+# Dev workload principal (locker and seal worker): Blob Data Owner (user delegation keys, holds, tags) and
+# Crypto User. With azure.evidence_writer_role, the client IP and records accounts get the custom SDP Evidence
+# Writer instead (config/azure-roles/sdp-evidence-writer.json: Owner without delete), so only the purge principal
+# can destroy sealed evidence (core TD-14). Landing keeps Owner: the seal path deletes landing copies.
+variable "evidence_writer_role" {
+  type        = bool
+  default     = null
+  description = "Overrides azure.evidence_writer_role from the environment file: true once an owner has created SDP Evidence Writer."
+}
+
+locals {
+  evidence_writer   = coalesce(var.evidence_writer_role, try(local.azure.evidence_writer_role, false))
+  no_delete_storage = local.evidence_writer ? toset(["clientip", "records"]) : toset([])
+}
+
 resource "azurerm_role_assignment" "blob_owner" {
-  for_each             = local.workload == "" ? {} : module.storage.ids
+  for_each             = local.workload == "" ? {} : { for k, v in module.storage.ids : k => v if !contains(local.no_delete_storage, k) }
   scope                = each.value
   role_definition_name = "Storage Blob Data Owner"
+  principal_id         = local.workload
+}
+
+resource "azurerm_role_assignment" "evidence_writer" {
+  for_each             = local.workload == "" ? {} : { for k, v in module.storage.ids : k => v if contains(local.no_delete_storage, k) }
+  scope                = each.value
+  role_definition_name = "SDP Evidence Writer"
   principal_id         = local.workload
 }
 

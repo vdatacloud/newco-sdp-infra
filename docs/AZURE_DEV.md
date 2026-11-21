@@ -123,6 +123,30 @@ take a few minutes to become visible; rerun the apply if it says the role was no
 disable a scope (the tenant's data becomes unreadable), so on AKS this role goes to a separate onboarding identity
 with a federated credential, never to the locker API's identity.
 
+**Evidence writer role (core TD-14).** The locker workload (locker and seal worker) must not be able to delete sealed
+evidence; only the purge principal may. `SDP Evidence Writer` is Storage Blob Data Owner without blob or version
+delete. It replaces Owner on the client IP and records accounts; landing keeps Owner, because the seal path removes
+landing copies. An owner creates it once, widens the Terraform principal's condition to include it, then turns it on:
+
+```
+sed "s|{RG}|$RG|" config/azure-roles/sdp-evidence-writer.json > /tmp/sdp-evidence-writer.json
+az role definition create --role-definition @/tmp/sdp-evidence-writer.json
+SCOPE=$(az role definition list --custom-role-only --name "SDP Encryption Scope Writer" --query '[0].name' -o tsv)
+EVID=$(az role definition list --custom-role-only --name "SDP Evidence Writer" --query '[0].name' -o tsv)
+az role assignment list --assignee $SP --scope $RG --role "Role Based Access Control Administrator" --query '[0].id' -o tsv \
+  | xargs az role assignment delete --ids
+COND=$(cat <<EOF
+((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {b7e6dc6d-f1e8-4753-8033-0f276bb0955b, 12338af0-0e69-4776-bea7-57ae8d297424, b86a8fe4-44ce-4948-aee5-eccb2c155cd7, $SCOPE, $EVID}))
+EOF
+)
+az role assignment create --assignee $SP --role "Role Based Access Control Administrator" --scope $RG \
+  --condition-version 2.0 --condition "$COND"
+```
+
+Then set `evidence_writer_role: true` under `azure:` in `config/environments/azdev.yaml`, run
+`make azure-plan` (expect two Owner assignments destroyed and two `evidence_writer` created) and apply. In core,
+`make azure-contract AZ_NODELETE=1` proves it: `TestWorkloadCannotDelete` and a refused delete after a hold clears.
+
 **Tailscale console (after stage 2).** The router appears under Machines once it boots.
 
 1. Machines → `newco-sdp-vm-1-dev` → Edit route settings → approve `10.42.0.0/16`.

@@ -74,3 +74,16 @@ run "no_purge_identity" {
     error_message = "Without a purge principal, no purge role assignments."
   }
 }
+
+run "evidence_writer" {
+  command = plan
+
+  variables {
+    evidence_writer_role = true
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.evidence_writer) == 2 && !contains(keys(azurerm_role_assignment.blob_owner), "clientip") && !contains(keys(azurerm_role_assignment.blob_owner), "records") && contains(keys(azurerm_role_assignment.blob_owner), "landing")
+    error_message = "With the evidence writer role, client IP and records lose Blob Data Owner; landing keeps it."
+  }
+}
