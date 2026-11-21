@@ -24,7 +24,8 @@ Naming: `<client>-<project>-<type>-<instance>-<stage>`. Storage account names ca
 | Identity | Used by | Rights |
 |---|---|---|
 | `sp-tf-workload-sdp-dev` (certificate) | Terraform | Contributor on the subscription; on the resource group, Key Vault Crypto Officer and Role Based Access Control Administrator **restricted** to assigning Storage Blob Data Owner and Key Vault Crypto User only |
-| `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner on the four accounts, Key Vault Crypto User on the vault (assigned by Terraform from `azure.workload_principal_id`) |
+| `sp-sdp-locker-dev` (certificate) | locker and seal worker (core L2a) | Storage Blob Data Owner and SDP Encryption Scope Writer (custom) on the four accounts, Key Vault Crypto User and Secrets Officer on the vault (assigned by Terraform from `azure.workload_principal_id`) |
+| purge worker principal (not created yet) | purge worker (core TD-14) | Storage Blob Data Owner and SDP Encryption Scope Writer on the three tenant accounts, Key Vault Crypto User on the vault (assigned by Terraform from `azure.purge_principal_id`; written and plan-tested, never applied) |
 
 Both sign in with certificates; neither has a client secret. Keep the `.pfx`/`.pem` files outside every repo,
 mode 600.
@@ -97,6 +98,31 @@ az role assignment create --assignee $SP --role "Role Based Access Control Admin
 
 The two GUIDs are Storage Blob Data Owner and Key Vault Crypto User.
 
+**Encryption scope and secrets roles (I3e).** Per-tenant encryption scopes are created by the locker at tenant onboarding,
+which needs `encryptionScopes/write` on the accounts. No built-in role is that narrow, and Contributor cannot
+create role definitions, so an owner creates the custom role once and widens the Terraform principal's condition
+to include it, then reapplies:
+
+```
+az role definition create --role-definition @config/azure-roles/sdp-encryption-scope-writer.json
+ROLE=$(az role definition list --custom-role-only --name "SDP Encryption Scope Writer" --query '[0].name' -o tsv)
+az role assignment list --assignee $SP --scope $RG --role "Role Based Access Control Administrator" --query '[0].id' -o tsv \
+  | xargs az role assignment delete --ids
+COND=$(cat <<EOF
+((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {b7e6dc6d-f1e8-4753-8033-0f276bb0955b, 12338af0-0e69-4776-bea7-57ae8d297424, b86a8fe4-44ce-4948-aee5-eccb2c155cd7, $ROLE}))
+EOF
+)
+az role assignment create --assignee $SP --role "Role Based Access Control Administrator" --scope $RG \
+  --condition-version 2.0 --condition "$COND"
+make azure-apply STAGE=net
+```
+
+`b86a8fe4-…` is Key Vault Secrets Officer: tenant name keys are vault secrets (core TD-12) that devseed creates
+and the locker reads. This heredoc is unquoted so `$ROLE` expands; zsh does not history-expand inside a heredoc. A new custom role can
+take a few minutes to become visible; rerun the apply if it says the role was not found. A scope `write` can also
+disable a scope (the tenant's data becomes unreadable), so on AKS this role goes to a separate onboarding identity
+with a federated credential, never to the locker API's identity.
+
 **Tailscale console (after stage 2).** The router appears under Machines once it boots.
 
 1. Machines → `newco-sdp-vm-1-dev` → Edit route settings → approve `10.42.0.0/16`.
@@ -136,5 +162,14 @@ The first lookup after the router starts can time out while dnsmasq warms up; re
   network removed (storage and vault kept). Private endpoints (~$37) and NAT (~$37 with its IP) dominate.
 - The Key Vault has purge protection: deleting it leaves it soft-deleted for 90 days, and recreating the same name
   recovers it (provider `recover_soft_deleted_key_vaults = true`), `receipts` key included.
+- **Park it** when no work needs Azure: `make azure-park` destroys only `module.network` (private endpoints, NAT and
+  its IP, router VM, VNet, private DNS); nothing depends on it, so storage accounts, the vault, the receipts key,
+  encryption scopes and role assignments stay. Storage and vault then have no reachable endpoint at all (public
+  access stays off) and cost a few dollars a month. A plain `make azure-plan` shows the network to add while
+  parked; that is expected. `make azure-unpark` (the net stage) brings it back, then repeat the Tailscale console
+  steps with a fresh single-use auth key in the keychain (the router is a new machine).
+  After parking, in the Tailscale console remove the two `10.42.2.4` split-DNS nameservers (`blob.core.windows.net`,
+  `vault.azure.net`), or every blob and vault lookup on the tailnet, any organisation's, goes to a dead resolver;
+  and remove the `newco-sdp-vm-1-dev` machine.
 - If Tailscale ever lapses nothing opens up: there is no inbound path. Alternatives are an Azure VPN Gateway
   (point-to-site, I5) or a temporary IP allowlist on the accounts and vault.

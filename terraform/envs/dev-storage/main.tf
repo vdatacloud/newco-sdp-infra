@@ -40,6 +40,12 @@ variable "workload_principal_id" {
   description = "Overrides azure.workload_principal_id from the environment file. Empty: no role assignments."
 }
 
+variable "purge_principal_id" {
+  type        = string
+  default     = null
+  description = "Overrides azure.purge_principal_id from the environment file: the purge worker's own identity (core TD-14). Empty: no purge role assignments."
+}
+
 locals {
   env    = yamldecode(file("${path.module}/${var.env_file}"))
   n      = local.env.naming
@@ -52,6 +58,9 @@ locals {
   }
   workload_principal_id = coalesce(var.workload_principal_id, try(local.azure.workload_principal_id, ""), "-")
   workload              = local.workload_principal_id == "-" ? "" : local.workload_principal_id
+  purge_principal_id    = coalesce(var.purge_principal_id, try(local.azure.purge_principal_id, ""), "-")
+  purge                 = local.purge_principal_id == "-" ? "" : local.purge_principal_id
+  tenant_accounts       = { for k, v in module.storage.ids : k => v if k != "platform" }
   # Owner, Project and Environment are required by Azure Policy (see azdev.yaml).
   tags = {
     Owner       = local.env.owner
@@ -163,11 +172,60 @@ resource "azurerm_role_assignment" "blob_owner" {
   principal_id         = local.workload
 }
 
+# Per-tenant encryption scopes (core L2a). The role is custom
+# (config/azure-roles/sdp-encryption-scope-writer.json, created once by an owner,
+# docs/AZURE_DEV.md). On AKS it moves to a separate onboarding identity: write
+# can also disable a scope, which the API identity should not be able to do.
+resource "azurerm_role_assignment" "scope_writer" {
+  # Tenant accounts only: the platform account holds no tenant data.
+  for_each             = local.workload == "" ? {} : { for k, v in module.storage.ids : k => v if k != "platform" }
+  scope                = each.value
+  role_definition_name = "SDP Encryption Scope Writer"
+  principal_id         = local.workload
+}
+
+# Tenant name keys are vault secrets (core TD-12): the locker reads them and,
+# on azdev, devseed (same identity) creates them. On AKS reading and creating
+# split between the locker (Secrets User) and onboarding (Secrets Officer).
+resource "azurerm_role_assignment" "secrets_officer" {
+  count                = local.workload == "" ? 0 : 1
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = local.workload
+}
+
 resource "azurerm_role_assignment" "crypto_user" {
   count                = local.workload == "" ? 0 : 1
   scope                = azurerm_key_vault.this.id
   role_definition_name = "Key Vault Crypto User"
   principal_id         = local.workload
+}
+
+# Purge worker (core TD-14): purge, offboarding and collapse destroy evidence,
+# so they run under their own identity. It clears legal holds and deletes
+# blobs and versions (Blob Data Owner), disables a departing tenant's
+# encryption scopes (Scope Writer) and signs deletion certificates with the
+# receipt key (Crypto User). Tenant accounts only; no vault secrets. The seal
+# worker keeps Blob Data Owner for now; a custom role without delete is later.
+resource "azurerm_role_assignment" "purge_blob_owner" {
+  for_each             = local.purge == "" ? {} : local.tenant_accounts
+  scope                = each.value
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = local.purge
+}
+
+resource "azurerm_role_assignment" "purge_scope_writer" {
+  for_each             = local.purge == "" ? {} : local.tenant_accounts
+  scope                = each.value
+  role_definition_name = "SDP Encryption Scope Writer"
+  principal_id         = local.purge
+}
+
+resource "azurerm_role_assignment" "purge_crypto_user" {
+  count                = local.purge == "" ? 0 : 1
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Key Vault Crypto User"
+  principal_id         = local.purge
 }
 
 output "storage_accounts" {

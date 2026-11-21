@@ -43,7 +43,7 @@ AZ_ENV ?= azdev
 TF_AZ := GODEBUG=netdns=go terraform -chdir=terraform/envs/dev-storage
 AZ_KEYCHAIN_ITEM ?= sp-tf-workload-sdp-dev
 AZ_SUB := $(shell sed -n 's/^ *subscription_id: *\([0-9a-f-]*\).*/\1/p' config/environments/$(AZ_ENV).yaml)
-.PHONY: azure-check azure-plan azure-apply azure-router-start azure-router-stop
+.PHONY: azure-park azure-unpark azure-check azure-plan azure-apply azure-router-start azure-router-stop
 azure-check: ## Format, validate and policy-test the Azure Terraform (no Azure access)
 	@terraform fmt -check -recursive terraform
 	@for d in terraform/modules/storage-accounts terraform/modules/dev-network terraform/envs/dev-storage; do \
@@ -64,7 +64,8 @@ AZ_TF_ENV = TF_VAR_client_certificate_password="$$(security find-generic-passwor
 	  TF_VAR_tailscale_auth_key="$$(security find-generic-password -s tailscale-sdp-dev -w 2>/dev/null)"
 AZ_TARGETS_rg  := -target=azurerm_resource_group.this
 AZ_TARGETS_net := -target=module.storage -target=module.network -target=azurerm_key_vault.this \
-	  -target=azurerm_role_assignment.blob_owner -target=azurerm_role_assignment.crypto_user
+	  -target=azurerm_role_assignment.blob_owner -target=azurerm_role_assignment.crypto_user \
+	  -target=azurerm_role_assignment.scope_writer -target=azurerm_role_assignment.secrets_officer
 AZ_TARGETS_key :=
 azure-apply: azure-check ## Apply the Azure dev stamp: STAGE=rg|net|key [APPROVE=1] (I3b)
 	@case "$(STAGE)" in rg|net|key) ;; *) echo "STAGE=rg|net|key"; exit 1;; esac
@@ -75,6 +76,15 @@ azure-apply: azure-check ## Apply the Azure dev stamp: STAGE=rg|net|key [APPROVE
 
 AZ_RG := $(shell sed -n 's/^naming: { client: \([a-z]*\), project: \([a-z]*\), instance: \([0-9]\), stage: \([a-z]*\) }.*/\1-\2-rg-\3-\4/p' config/environments/$(AZ_ENV).yaml)
 AZ_VM := $(subst -rg-,-vm-,$(AZ_RG))
+azure-park: azure-check ## Remove the dev stamp's network (endpoints, NAT, router, VNet); storage and vault stay, unreachable [APPROVE=1]
+	@az account show --query id -o tsv | grep -qx "$(AZ_SUB)" || \
+	  { echo "active az subscription is not $(AZ_ENV)'s: az account set --subscription $(AZ_SUB)"; exit 1; }
+	@$(TF_AZ) init -input=false -reconfigure -backend-config=path=$(abspath local/terraform-$(AZ_ENV)-storage.tfstate) >/dev/null
+	@$(AZ_TF_ENV) $(TF_AZ) destroy -input=false $(if $(APPROVE),-auto-approve) -var env_file=../../../config/environments/$(AZ_ENV).yaml -target=module.network
+
+azure-unpark: ## Bring the network back: the net stage again, then the Tailscale console steps (AZURE_DEV.md)
+	@$(MAKE) azure-apply STAGE=net
+
 azure-router-start: ## Start the Tailscale router VM (it stops itself each evening)
 	@az vm start -g $(AZ_RG) -n $(AZ_VM) --subscription $(AZ_SUB) -o none && echo "started $(AZ_VM)"
 

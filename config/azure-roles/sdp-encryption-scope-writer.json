@@ -1,0 +1,14 @@
+{
+  "Name": "SDP Encryption Scope Writer",
+  "IsCustom": true,
+  "Description": "Create and read per-tenant storage encryption scopes. Nothing else on the account: no keys, network rules or data.",
+  "Actions": [
+    "Microsoft.Storage/storageAccounts/read",
+    "Microsoft.Storage/storageAccounts/encryptionScopes/read",
+    "Microsoft.Storage/storageAccounts/encryptionScopes/write"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/subscriptions/c6ef8803-0d6b-4361-aa26-c510d6cc6f27/resourceGroups/newco-sdp-rg-1-dev"]
+}
